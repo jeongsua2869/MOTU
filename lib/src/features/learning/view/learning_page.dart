@@ -95,7 +95,7 @@ class LearningPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const CourseListPage()),
+                                builder: (context) => CourseListPage()),
                           );
                         },
                         style: ElevatedButton.styleFrom(

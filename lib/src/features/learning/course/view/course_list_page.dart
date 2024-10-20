@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../design/color_theme.dart';
 import 'course_map_screen.dart';
 
 class CourseListPage extends StatelessWidget {
-  const CourseListPage({super.key});
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  CourseListPage({super.key});
+
+  Future<List<Map<String, dynamic>>> fetchCourses() async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore.collection('course').get();
+      return querySnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+    } catch (e) {
+      print(e);
+      return [];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,21 +27,30 @@ class CourseListPage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ListView(
-                children: [
-                  buildCourseCard(context, '기초 경제 코스', '경제의 기본 개념을 배워보세요.'),
-                  buildCourseCard(
-                      context, '주식 투자의 기초', '주식 투자의 기본을 배우고 시작해보세요.'),
-                  buildCourseCard(context, '기초 금융 코스', '금융의 기본을 배우고 지식을 쌓으세요.'),
-                  // Add more courses here
-                ],
-              ),
-            ),
-          ],
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: fetchCourses(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No courses found.'));
+            } else {
+              final courses = snapshot.data!;
+              return ListView.builder(
+                itemCount: courses.length,
+                itemBuilder: (context, index) {
+                  final course = courses[index];
+                  return buildCourseCard(
+                    context,
+                    course['course_name'] ?? 'Unknown Course',
+                    course['description'] ?? 'No description available.',
+                  );
+                },
+              );
+            }
+          },
         ),
       ),
     );
@@ -56,7 +78,7 @@ class CourseListPage extends StatelessWidget {
             elevation: 2,
           ),
           onPressed: () {
-            navigateToCourseMap(context, title, description); // 설명 전달
+            navigateToCourseMap(context, title, description);
           },
           child: const Text(
             '시작하기',
@@ -64,7 +86,7 @@ class CourseListPage extends StatelessWidget {
           ),
         ),
         onTap: () {
-          navigateToCourseMap(context, title, description); // 설명 전달
+          navigateToCourseMap(context, title, description);
         },
       ),
     );
