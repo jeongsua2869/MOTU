@@ -15,6 +15,7 @@ import 'package:motu/src/common/service/notifications.dart';
 import 'package:motu/src/features/login/service/auth_service.dart';
 import 'package:motu/src/features/login/view/onboarding/onboarding.dart';
 import 'package:motu/src/features/profile/service/qna_service.dart';
+import 'package:motu/src/features/scenario/model/scenario_status.dart';
 import 'package:motu/src/features/scenario/service/scenario_service.dart';
 import 'package:motu/src/common/firebase_options.dart';
 import 'package:motu/src/features/learning/term/service/term_quiz_service.dart';
@@ -47,7 +48,6 @@ Future<void> main() async {
   // Hive 로컬DB 초기화
   final dir = await getApplicationDocumentsDirectory();
   Hive.defaultDirectory = dir.path;
-  // initHiveDB();
 
   // NOTE : Isolate 토큰 생성 및 초기화
   final RootIsolateToken rootIsolateToken = RootIsolateToken.instance!;
@@ -81,8 +81,6 @@ Future<void> main() async {
   );
 
   await initializeBackgroundService();
-
-  setScenarioIsRunning(false);
 
   runApp(
     MultiProvider(
@@ -148,15 +146,37 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    ScenarioService scenarioService =
+        Provider.of<ScenarioService>(context, listen: false);
+
     switch (state) {
       case AppLifecycleState.resumed:
         log('🌟 App in resumed state');
+        bool isScenarioRunning = getScenarioIsRunning();
+        if (isScenarioRunning) {
+          ScenarioStatus currentStatus = getScenarioStatusData();
+
+          if (currentStatus.endTime.isBefore(DateTime.now())) {
+            log('🌟 시나리오 종료 시간이 지났습니다.');
+            scenarioService.handleScenarioEnd(true);
+          } else {
+            log('🌟 시나리오 종료 시간이 지나지 않았습니다. 시나리오 정보를 업데이트합니다.');
+            scenarioService.updateCurrentStatusWhenResume(currentStatus);
+          }
+        }
+        clearScenarioStatusData();
         break;
       case AppLifecycleState.inactive:
         log('🌟 App in inactive state');
         break;
       case AppLifecycleState.paused:
         log('🌟 App in paused state');
+        bool isScenarioRunning = getScenarioIsRunning();
+        if (isScenarioRunning) {
+          setScenarioStatusData(scenarioService);
+
+          print(getScenarioStatusData().portfolio.toJson().toString());
+        }
         break;
       case AppLifecycleState.detached:
         log('🌟 App in detached state');

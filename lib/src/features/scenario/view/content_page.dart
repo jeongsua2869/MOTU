@@ -49,8 +49,7 @@ class ContentPage extends StatelessWidget {
 
       ScenarioResult result = ScenarioResult(
         date: DateTime.now(),
-        subject: service
-            .getScenarioTitle(service.selectedScenario ?? ScenarioType.disease),
+        subject: service.getScenarioTitle(service.selectedScenario),
         isIncome: isIncome,
         totalReturn: amount,
         returnRate: service.totalPurchasePrice == 0
@@ -68,8 +67,7 @@ class ContentPage extends StatelessWidget {
         appBar: AppBar(
           toolbarHeight: 40,
           title: Text(
-            service.getScenarioTitle(
-                service.selectedScenario ?? ScenarioType.disease),
+            service.getScenarioTitle(service.selectedScenario),
             style: const TextStyle(fontSize: 18),
           ),
           leading: GestureDetector(

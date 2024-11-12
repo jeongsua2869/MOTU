@@ -27,6 +27,40 @@ class StockData {
   final double close;
   final int volume;
 
+  // JSON으로 변환하는 메서드
+  Map<String, dynamic> toJson() {
+    return {
+      'date': DateFormat('yyyy-MM-dd').format(x),
+      'open': open,
+      'high': high,
+      'low': low,
+      'close': close,
+      'volume': volume,
+    };
+  }
+
+  // JSON에서 객체로 변환하는 메서드
+  factory StockData.fromJson(Map<String, dynamic> json) {
+    return StockData(
+      x: DateFormat('yyyy-MM-dd').parse(json['date']),
+      open: json['open'] is num
+          ? json['open'].toDouble()
+          : double.parse(json['open'].toString()),
+      high: json['high'] is num
+          ? json['high'].toDouble()
+          : double.parse(json['high'].toString()),
+      low: json['low'] is num
+          ? json['low'].toDouble()
+          : double.parse(json['low'].toString()),
+      close: json['close'] is num
+          ? json['close'].toDouble()
+          : double.parse(json['close'].toString()),
+      volume: json['volume'] is int
+          ? json['volume']
+          : int.parse(json['volume'].toString()),
+    );
+  }
+
   factory StockData.fromList(List<dynamic> data) {
     try {
       return StockData(

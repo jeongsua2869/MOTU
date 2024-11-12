@@ -51,7 +51,7 @@ Widget CommonDialog(BuildContext context) {
 
                       setScenarioIsRunning(false);
                       Provider.of<ScenarioService>(context, listen: false)
-                          .checkingScenarioIsRunning();
+                          .isRunning = getScenarioIsRunning();
                     },
                   ),
                 ),

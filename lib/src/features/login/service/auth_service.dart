@@ -111,7 +111,6 @@ class AuthService with ChangeNotifier {
         await getUserInfo();
       } else {
         await addEmailUserInfo(_auth.currentUser!.displayName ?? "");
-        await getUserInfo();
         dev.log("유저 정보가 없으므로 추가합니다.");
       }
 
@@ -169,8 +168,8 @@ class AuthService with ChangeNotifier {
           dev.log("User info already exists.");
           await getUserInfo();
         } else {
-          await addUserInfo();
           dev.log("User info does not exist, adding user.");
+          await addUserInfo();
         }
 
         notifyListeners(); // Notify listeners after state change
@@ -268,6 +267,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      getUserInfo();
     }
   }
 
@@ -298,6 +299,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      await getUserInfo();
     }
   }
 
@@ -328,6 +331,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      await getUserInfo();
     }
 
     notifyListeners();

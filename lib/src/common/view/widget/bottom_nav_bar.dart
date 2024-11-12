@@ -48,7 +48,7 @@ Widget BottomNavBar() {
               width: 20,
               height: 20,
             ),
-            label: '실전학습',
+            label: '시나리오',
           ),
           BottomNavigationBarItem(
             icon: Image.asset(
