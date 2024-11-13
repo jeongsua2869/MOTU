@@ -1,7 +1,7 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:gif/gif.dart';
 import 'package:motu/src/common/database.dart';
 import 'package:motu/src/common/view/widget/bottom_nav_bar.dart';
 import 'package:motu/src/common/view/widget/motu_button.dart';
@@ -19,6 +19,16 @@ class NavPage extends StatefulWidget {
 }
 
 class _NavPageState extends State<NavPage> {
+  late ScenarioService _service;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    _service = Provider.of<ScenarioService>(context, listen: false);
+    log("Service 정상적으로 인식");
+  }
+
   @override
   void initState() {
     super.initState();
@@ -30,8 +40,8 @@ class _NavPageState extends State<NavPage> {
       if (isScenarioRunning) {
         log('🌟 시나리오 진행 중, 앱이 종료된 후 다시 실행됨');
 
-        ScenarioService service =
-            Provider.of<ScenarioService>(context, listen: false);
+        // ScenarioService service =
+        //     Provider.of<ScenarioService>(context, listen: false);
         ScenarioStatus currentStatus = getScenarioStatusData();
 
         if (currentStatus.endTime.isBefore(DateTime.now())) {
@@ -41,7 +51,7 @@ class _NavPageState extends State<NavPage> {
             context: context,
             barrierDismissible: false,
             builder: (context) {
-              return FinishDialog(context, currentStatus, service);
+              return FinishDialog(context, currentStatus, _service);
             },
           );
         } else {
@@ -51,12 +61,12 @@ class _NavPageState extends State<NavPage> {
             context: context,
             barrierDismissible: false,
             builder: (context) {
-              return ContinueDialog(context, currentStatus, service);
+              return ContinueDialog(context, currentStatus, _service);
             },
           );
         }
 
-        await service.updateCurrentStatusWhenOpenApp(currentStatus);
+        await _service.updateCurrentStatusWhenOpenApp(currentStatus);
 
         clearScenarioStatusData();
       }
@@ -83,8 +93,8 @@ Widget ContinueDialog(BuildContext context, ScenarioStatus currentStatus,
   Duration elapseTime = DateTime.now().difference(currentStatus.terminatedAt);
   service.returnRate = currentStatus.portfolio.returnRate;
 
-  print(currentStatus.runningScenario.toJson().toString());
-  print(currentStatus.portfolio.toJson().toString());
+  log(currentStatus.runningScenario.toJson().toString());
+  log(currentStatus.portfolio.toJson().toString());
 
   return AlertDialog(
     backgroundColor: Colors.white,
@@ -141,37 +151,57 @@ Widget ContinueDialog(BuildContext context, ScenarioStatus currentStatus,
                 ),
                 const Spacer(flex: 2),
                 Consumer<ScenarioService>(builder: (context, service, child) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "앱 종료한 지 ${elapseTime.inMinutes}분 경과",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        // Text(
-                        //   "현재 시점 ${service.currentStockTime}",
-                        //   style: const TextStyle(fontSize: 16),
-                        // ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "앱 종료 당시 수익률 : ${currentStatus.portfolio.totalEarningRate.toStringAsFixed(2)}%",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        Text(
-                          "현 시점 수익률 : ${service.totalEarningRate.toStringAsFixed(2)}%",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "시나리오 남은 시간 : ${service.remainingTime.inMinutes}분",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  );
+                  if (service.totalEarningRate.toStringAsFixed(2) == "0.00" ||
+                      currentStatus.portfolio.totalEarningRate
+                              .toStringAsFixed(2) ==
+                          service.totalEarningRate.toStringAsFixed(2)) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Gif(
+                            image: const AssetImage(
+                                'assets/images/gif/common.gif'),
+                            autostart: Autostart.loop,
+                            fit: BoxFit.fill,
+                          ),
+                          const Text("진행상황을 불러오고 있습니다"),
+                        ],
+                      ),
+                    );
+                  } else {
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "앱 종료한 지 ${elapseTime.inMinutes}분 경과",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          // Text(
+                          //   "현재 시점 ${service.currentStockTime}",
+                          //   style: const TextStyle(fontSize: 16),
+                          // ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "앱 종료 당시 수익률 : ${currentStatus.portfolio.totalEarningRate.toStringAsFixed(2)}%",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            "현 시점 수익률 : ${service.totalEarningRate.toStringAsFixed(2)}%",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "시나리오 남은 시간 : ${service.remainingTime.inMinutes}분",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                 }),
                 const Spacer(flex: 3),
               ],
@@ -196,19 +226,23 @@ Widget FinishDialog(BuildContext context, ScenarioStatus currentStatus,
           left: 8,
           right: 8,
           child: SizedBox(
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: MotuNormalButton(
-                    context,
-                    color: ColorTheme.Purple1,
-                    text: "시나리오 종료 보고서 보러가기",
-                    onPressed: () {
-                      Navigator.of(context).pop();
-
-                      service.handleScenarioEnd(true);
-                    },
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Gif(
+                        image: const AssetImage('assets/images/gif/common.gif'),
+                        autostart: Autostart.loop,
+                        fit: BoxFit.contain,
+                        height: 80,
+                      ),
+                    ),
+                  ],
+                ),
+                const Text(
+                  "결과 보고서 불러오는 중...",
+                  style: TextStyle(fontSize: 14),
                 ),
               ],
             ),
@@ -227,13 +261,12 @@ Widget FinishDialog(BuildContext context, ScenarioStatus currentStatus,
                   child: Column(
                     children: [
                       Text(
-                        service
-                            .getScenarioTitle(currentStatus.selectedScenario),
+                        "${service.getScenarioTitle(currentStatus.selectedScenario)} 시나리오가",
                         style: const TextStyle(
                             fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const Text(
-                        "시나리오가 종료되었어요!",
+                        "종료되었어요! 🎉🎉",
                         style: TextStyle(
                             fontSize: 20, fontWeight: FontWeight.bold),
                       ),
@@ -248,18 +281,18 @@ Widget FinishDialog(BuildContext context, ScenarioStatus currentStatus,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "앱을 끄고 다른 걸 하고 있던 사이에 시나리오가 종료되었어요!",
+                        "앱이 꺼져있던 사이에 시나리오가 종료되었어요!",
                         style: TextStyle(fontSize: 16),
                       ),
                       SizedBox(height: 16),
                       Text(
-                        "시나리오 종료 보고서를 보러 가볼까요?",
+                        "시나리오 결과보고서를 보러 가볼까요?",
                         style: TextStyle(fontSize: 16),
                       ),
                     ],
                   ),
                 ),
-                const Spacer(flex: 3),
+                const Spacer(flex: 4),
               ],
             ),
           ),

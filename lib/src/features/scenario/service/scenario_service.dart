@@ -360,9 +360,11 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
       clearScenarioStatusData();
 
       if (updateUserBalanceWhenFinish != null) {
+        dev.log("💵 사용자 잔액 업데이트");
         updateUserBalanceWhenFinish!();
       }
       if (onNavigate != null) {
+        dev.log("🚀 페이지 이동");
         onNavigate!();
       }
     }

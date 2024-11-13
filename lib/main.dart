@@ -180,7 +180,6 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         break;
       case AppLifecycleState.detached:
         log('🌟 App in detached state');
-
         break;
       default:
         break;
