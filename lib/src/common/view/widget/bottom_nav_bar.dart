@@ -6,7 +6,7 @@ import '../../../design/color_theme.dart';
 Widget BottomNavBar() {
   return Consumer<NavigationService>(builder: (context, service, child) {
     return SizedBox(
-      height: 80,
+      height: MediaQuery.of(context).size.height * 0.1,
       child: BottomNavigationBar(
         backgroundColor: ColorTheme.colorWhite,
         selectedItemColor: ColorTheme.colorPrimary,
@@ -48,7 +48,7 @@ Widget BottomNavBar() {
               width: 20,
               height: 20,
             ),
-            label: '실전학습',
+            label: '시나리오',
           ),
           BottomNavigationBarItem(
             icon: Image.asset(

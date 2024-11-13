@@ -17,12 +17,14 @@ class TutorialPopup extends StatelessWidget {
 
     return Consumer<ScenarioService>(builder: (context, service, child) {
       return Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: size.width * 0.03,
-          vertical: size.height * 0.01,
+        padding: EdgeInsets.fromLTRB(
+          size.width * 0.02,
+          size.height * 0.03,
+          size.width * 0.02,
+          size.height * 0.02,
         ),
         width: size.width * 0.9,
-        height: size.height * 0.6,
+        height: size.height * 0.5,
         child: Stack(
           children: [
             Positioned(
@@ -30,33 +32,45 @@ class TutorialPopup extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: SizedBox(
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     SizedBox(
-                      width: size.width * 0.8,
+                      width: size.width * 0.3,
                       child: TextButton(
                         onPressed: () {
-                          service.setIsOnTutorial(true);
+                          Navigator.pop(context);
 
                           // 튜토리얼 페이지로 이동
-                          Navigator.replace(context,
-                              oldRoute: ModalRoute.of(context)!,
-                              newRoute: MaterialPageRoute(
-                                  builder: (context) => const TutorialPage()));
+                          showGeneralDialog(
+                              context: context,
+                              pageBuilder: (context, anim1, anim2) {
+                                return SizedBox(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  child: TutorialPage(type: type),
+                                );
+                              });
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: ColorTheme.Purple1,
                           backgroundColor: ColorTheme.Purple5,
-                          padding: EdgeInsets.symmetric(
-                            vertical: size.height * 0.01,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
                           ),
                         ),
-                        child: const Text("튜토리얼 보러가기"),
+                        child: const FittedBox(
+                            child: Text("튜토리얼",
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold))),
                       ),
                     ),
-                    const SizedBox(height: 1),
                     SizedBox(
-                      width: size.width * 0.9,
+                      width: size.width * 0.3,
                       child: TextButton(
                         onPressed: () {
                           // 튜토리얼 팝업 닫기
@@ -68,9 +82,8 @@ class TutorialPopup extends StatelessWidget {
                           // 유저 기존 자금 저장
                           service.setOriginBalance(
                               Provider.of<AuthService>(context, listen: false)
-                                      .user
-                                      ?.balance ??
-                                  0);
+                                  .user!
+                                  .balance);
 
                           // 시나리오 지정
                           service.setSelectedScenario(type);
@@ -84,13 +97,20 @@ class TutorialPopup extends StatelessWidget {
                         style: TextButton.styleFrom(
                           foregroundColor: ColorTheme.White,
                           backgroundColor: ColorTheme.Purple1,
-                          padding: EdgeInsets.symmetric(
-                            vertical: size.height * 0.01,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
                           ),
                         ),
-                        child: const Text(
-                          "시작하기",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "바로시작",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
                         ),
                       ),
                     ),
@@ -102,8 +122,9 @@ class TutorialPopup extends StatelessWidget {
               child: Column(
                 children: [
                   _buildTitle(service.selectedScenario ?? type),
-                  const SizedBox(height: 24),
+                  const Spacer(),
                   _buildContent(service.selectedScenario ?? type),
+                  const Spacer(flex: 2),
                 ],
               ),
             ),
@@ -133,8 +154,18 @@ class TutorialPopup extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         );
-      default:
-        return const SizedBox();
+      case ScenarioType.festival:
+        return const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            "이번 가을축제에서 가장 \n높은 수익률을 달성해보세요!",
+            style: TextStyle(
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
     }
   }
 
@@ -187,8 +218,29 @@ class TutorialPopup extends StatelessWidget {
             ),
           ],
         );
-      default:
-        return const SizedBox();
+      case ScenarioType.festival:
+        return const FittedBox(
+          fit: BoxFit.fitWidth,
+          child: SizedBox(
+            width: 240,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "🏆 시나리오 수익률 컨테스트",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text("🥇 1등: 배민 3만원 상품권", style: TextStyle(fontSize: 16)),
+                Text("🥈 2등: 배민 1만원 상품권", style: TextStyle(fontSize: 16)),
+                Text("🥉 3등: 커피 기프티콘", style: TextStyle(fontSize: 16)),
+              ],
+            ),
+          ),
+        );
     }
   }
 }

@@ -46,7 +46,7 @@ class TimeoverPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        InvestmentStatusToggle(haveTitle: false),
+                        const InvestmentStatusToggle(haveTitle: false),
                         const SizedBox(height: 16),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 36),

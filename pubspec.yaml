@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.7+1
+version: 0.2.1+5
 
 environment:
   sdk: ">=3.4.3 <4.0.0"
@@ -39,6 +39,8 @@ dependencies:
   shimmer: ^3.0.0
   introduction_screen: ^3.1.14
   flutter_local_notifications: ^17.2.2
+  percent_indicator: ^4.0.1
+  gif: ^2.3.0
 
   # 상태관리
   provider: ^6.1.2
@@ -58,7 +60,7 @@ dependencies:
   flutter_dotenv: ^5.1.0
 
   # 시나리오
-  syncfusion_flutter_charts: ^25.2.4
+  syncfusion_flutter_charts: ^27.1.53
   csv: ^5.1.1
 
   # 프로필
@@ -113,11 +115,14 @@ flutter:
     - assets/logo/
     - assets/images/
     - assets/images/scenario/
+    - assets/images/scenario/tutorial/
     - assets/images/login/
+    - assets/images/login/onboarding/
     - assets/images/profile/
     - assets/images/character/
     - assets/images/icon/
     - assets/images/course/
+    - assets/images/gif/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

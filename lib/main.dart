@@ -9,10 +9,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:hive/hive.dart';
+import 'package:motu/src/common/database.dart';
 import 'package:motu/src/common/service/background_service.dart';
 import 'package:motu/src/common/service/notifications.dart';
 import 'package:motu/src/features/login/service/auth_service.dart';
+import 'package:motu/src/features/login/view/onboarding/onboarding.dart';
 import 'package:motu/src/features/profile/service/qna_service.dart';
+import 'package:motu/src/features/scenario/model/scenario_status.dart';
 import 'package:motu/src/features/scenario/service/scenario_service.dart';
 import 'package:motu/src/common/firebase_options.dart';
 import 'package:motu/src/features/learning/term/service/term_quiz_service.dart';
@@ -45,7 +48,6 @@ Future<void> main() async {
   // Hive 로컬DB 초기화
   final dir = await getApplicationDocumentsDirectory();
   Hive.defaultDirectory = dir.path;
-  // initHiveDB();
 
   // NOTE : Isolate 토큰 생성 및 초기화
   final RootIsolateToken rootIsolateToken = RootIsolateToken.instance!;
@@ -144,19 +146,40 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    ScenarioService scenarioService =
+        Provider.of<ScenarioService>(context, listen: false);
+
     switch (state) {
       case AppLifecycleState.resumed:
         log('🌟 App in resumed state');
+        bool isScenarioRunning = getScenarioIsRunning();
+        if (isScenarioRunning) {
+          ScenarioStatus currentStatus = getScenarioStatusData();
+
+          if (currentStatus.endTime.isBefore(DateTime.now())) {
+            log('🌟 시나리오 종료 시간이 지났습니다.');
+            scenarioService.handleScenarioEnd(true);
+          } else {
+            log('🌟 시나리오 종료 시간이 지나지 않았습니다. 시나리오 정보를 업데이트합니다.');
+            scenarioService.updateCurrentStatusWhenResume(currentStatus);
+          }
+        }
+        clearScenarioStatusData();
         break;
       case AppLifecycleState.inactive:
         log('🌟 App in inactive state');
         break;
       case AppLifecycleState.paused:
         log('🌟 App in paused state');
+        bool isScenarioRunning = getScenarioIsRunning();
+        if (isScenarioRunning) {
+          setScenarioStatusData(scenarioService);
+
+          print(getScenarioStatusData().portfolio.toJson().toString());
+        }
         break;
       case AppLifecycleState.detached:
         log('🌟 App in detached state');
-
         break;
       default:
         break;
@@ -186,30 +209,21 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         home: StreamBuilder<User?>(
           stream: authService.auth.authStateChanges(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return const Scaffold(
-                body: Center(
-                  child: Text('Error'),
-                ),
-              );
-            }
-
             if (snapshot.hasData) {
               authService.getUserInfo().then((value) {
                 log('🔓 사용자 정보 로드 완료');
+                authService.getAttendance();
                 FlutterNativeSplash.remove();
               });
               return const NavPage();
             } else {
-              return const LoginPage();
+              if (getOnboardingDone() == false) {
+                log('⭐️ 온보딩 화면으로 이동');
+                FlutterNativeSplash.remove();
+                return const OnboardingScreen();
+              } else {
+                return const LoginPage();
+              }
             }
           },
         ),

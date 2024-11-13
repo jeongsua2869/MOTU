@@ -6,13 +6,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:motu/src/common/service/notifications.dart';
 import 'package:motu/src/features/scenario/model/invest_record.dart';
+import 'package:motu/src/features/scenario/model/scenario_status.dart';
 import 'package:motu/src/features/scenario/model/stock_financial.dart';
 import 'package:motu/src/features/scenario/model/stock_info.dart';
 import 'package:motu/src/common/database.dart';
 import 'package:motu/src/common/util/isolate_helper.dart';
 import 'package:motu/src/common/util/util.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:http/http.dart' as http;
 
 import '../model/stock_data.dart';
@@ -22,6 +23,7 @@ import '../model/stock_news.dart';
 enum ScenarioType {
   disease,
   secondaryBattery,
+  festival,
 }
 
 // 거래 유형
@@ -42,105 +44,35 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   Function? onNavigate; // 페이지 이동 함수
   Function? updateUserBalanceWhenFinish; // 사용자 잔액 업데이트 함수
 
-  bool _isRunning = false;
-  bool checkingScenarioIsRunning() {
-    _isRunning = getScenarioIsRunning();
-    return _isRunning;
-  }
+  //* MARK: - 시나리오 관련 변수
 
-  //* MARK: - 시나리오 주제 제목
-  String getScenarioTitle(ScenarioType type) {
-    switch (type) {
-      case ScenarioType.disease:
-        return '질병과 주식';
-      case ScenarioType.secondaryBattery:
-        return '2차전지와 주식';
-      default:
-        return '커밍 순...';
-    }
-  }
+  // 현재 시나리오 진행 중 여부
+  bool isRunning = false;
 
-  //* MARK: - 시나리오 남은 시간 타이머
+  // 시나리오 남은 시간 타이머
   Timer? _remainingTimeTimer;
   Duration _remainingTime = Duration.zero;
   Duration get remainingTime => _remainingTime;
 
-  int millisecondsPeriod = 1500;
+  // 시나리오 종료 시간
+  late DateTime endTime;
 
-  // 시나리오 시작할 때 남은시간 타이머 시작
-  void startRemainingTimeTimer() {
-    // back
-    dev.log("⏱️ 시나리오 남은 시간 타이머 시작");
+  // 하루당 시간 간격
+  int millisecondsPeriod = 4000;
 
-    if (_storedAllStockData.isEmpty) return;
-
-    // 전체 남은 시간 계산
-    int totalMilliseconds =
-        (_storedAllStockData[_selectedStock]!.length * millisecondsPeriod)
-            .toInt();
-    _remainingTime = Duration(milliseconds: totalMilliseconds);
-
-    // 0.1초마다 남은 시간을 감소시키는 타이머
-    _remainingTimeTimer =
-        Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_remainingTime.inMilliseconds > 0) {
-        _remainingTime -= const Duration(milliseconds: 100);
-        notifyListeners();
-      } else {
-        _remainingTimeTimer?.cancel();
-      }
-    });
-  }
-
-  // 시나리오 종료 시 남은 시간 타이머 중지
-  void stopRemainingTimeTimer() {
-    _remainingTimeTimer?.cancel();
-    _remainingTimeTimer = null;
-  }
-
+  // 최신 주가 날짜
   late DateTime currentStockTime;
 
-  // 선택한 시나리오 타입
-  ScenarioType? _selectedScenario;
-  ScenarioType? get selectedScenario => _selectedScenario;
-  void setSelectedScenario(ScenarioType scenario) {
-    _selectedScenario = scenario;
-    notifyListeners();
-  }
-
   // 관련주 드롭다운
-  String _selectedStock = '관련주 A';
-  String get selectedStock => _selectedStock;
+  String selectedStock = '관련주 A';
 
-  bool _isChangeStock = false;
-  bool get isChangeStock => _isChangeStock;
-  void setIsChangeStock(bool value) {
-    _isChangeStock = value;
-    notifyListeners();
-  }
+  // // 주식 변경 중 상태 BOOL
+  // bool isChangeStock = false;
 
-  // 드롭다운으로 관련주 변경
-  void setSelectedStock(String value) {
-    _selectedStock = value;
-    dev.log("변경한 관련주: ${_stockCSVPaths[_selectedStock]![0]}");
+  // 선택한 시나리오 타입
+  late ScenarioType selectedScenario;
 
-    // 선택된 주식의 visibleStockData 업데이트
-    _updateAllVisibleData();
-
-    // y축 범위 업데이트
-    updateYAxisRange(_actualArgs);
-
-    // 현재 주식 종목 정보 업데이트
-    setIsChangeStock(true);
-
-    // 2초 후에 isChangeStock을 false로 변경
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      setIsChangeStock(false);
-    });
-
-    notifyListeners();
-  }
-
+  // 관련주 이름 옵션 리스트
   List<String> stockOptions = [
     '관련주 A',
     '관련주 B',
@@ -149,454 +81,36 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     '관련주 E',
   ];
 
-  Map<String, String> _stockCSVPaths = {}; // 예: {'관련주 A': '0_chart.csv'}
-  Map<String, String> get stockCSVPaths => _stockCSVPaths;
-
-  // 현재 ActualRangeChangedArgs 척도
-  ActualRangeChangedArgs _actualArgs = ActualRangeChangedArgs();
-  ActualRangeChangedArgs get actualArgs => _actualArgs;
-  void setActualArgs(ActualRangeChangedArgs args) {
-    _actualArgs = args;
-    notifyListeners();
-  }
-
-  // y축, x축 범위 변수
-  double yMinimum = 0;
-  double yMaximum = 100;
-  double yInterval = 10;
-
-  DateTime xMinimum = DateTime.now().subtract(const Duration(days: 252));
-  DateTime xMaximum = DateTime.now();
+  // 관련주 주식 데이터 STORAGE CSV 경로
+  Map<String, String> stockCSVPaths = {}; // 예: {'관련주 A': '0_chart.csv'}
 
   // 저장되어 있는 모든 관련주 주식 데이터
-  final Map<String, List<StockData>> _storedAllStockData = {};
-  Map<String, List<StockData>> get storedAllStockData => _storedAllStockData;
+  final Map<String, List<StockData>> storedAllStockData = {};
 
   // 보여지고 있는 현재 관련주 주식 데이터
-  final Map<String, List<StockData>> _visibleAllStockData = {};
-  Map<String, List<StockData>> get visibleAllStockData => _visibleAllStockData;
+  final Map<String, List<StockData>> visibleAllStockData = {};
 
   // 보여지고 있는 현재 주식 데이터
-  List<StockData> _visibleStockData = [];
-  List<StockData> get visibleStockData => _visibleStockData;
+  List<StockData> visibleStockData = [];
 
-//* MARK: - 글로벌 타이머 및 인덱스
+  // 글로벌 타이머 및 인덱스
   Timer? _globalTimer;
+
   // 시작 인덱스 -> 거래일 기준 1년 뒤
-  int _globalIndex = 251;
+  int _globalIndex = 20;
+  // int _globalIndex = 0;
+  int get globalIndex => _globalIndex;
 
-  void startDataUpdate() {
-    // back
-    _globalTimer =
-        Timer.periodic(Duration(milliseconds: millisecondsPeriod), (timer) {
-      _updateAllVisibleData();
-    });
-  }
+  // 시나리오 초기 자금 저장
+  int originBalance = 0;
 
-  void stopDataUpdate() {
-    _globalTimer?.cancel();
-    _globalTimer = null;
-  }
+  // 선택한 관련주 설명 텍스트 저장
+  String selectedStockDescription = "";
 
-  void _updateAllVisibleData() {
-    bool allDataDisplayed = true;
-
-    for (final stock in stockOptions) {
-      if (_globalIndex < _storedAllStockData[stock]!.length - 1) {
-        _visibleAllStockData[stock] =
-            _storedAllStockData[stock]!.sublist(0, _globalIndex + 1);
-        allDataDisplayed = false;
-      } else {
-        _visibleAllStockData[stock] = _storedAllStockData[stock]!;
-      }
-    }
-
-    if (!allDataDisplayed) {
-      _globalIndex++;
-    }
-
-    // 선택된 주식의 visibleStockData 업데이트
-    _updateVisibleStockData();
-
-    // MARK: - 시나리오 사이클 종료
-    if (allDataDisplayed) {
-      stopDataUpdate(); // 모든 데이터를 표시했으면 타이머 중지
-
-      if (updateUserBalanceWhenFinish != null) {
-        updateUserBalanceWhenFinish!();
-      }
-
-      if (onNavigate != null) {
-        onNavigate!();
-      }
-    }
-
-    notifyListeners();
-  }
-
-  int _originBalance = 0;
-  int get originBalance => _originBalance;
-  void setOriginBalance(int value) {
-    _originBalance = value;
-    notifyListeners();
-  }
-
-  //* MARK: - Initialize
-  Future<void> initializeData() async {
-    dev.log("Data initialized");
-
-    // 모든 관련주 데이터 불러오기
-    await _loadAllData();
-
-    _updateAllVisibleData();
-
-    // 데이터 업데이트 타이머 시작 (Back)
-    startDataUpdate();
-
-    // 남은 시간 타이머 시작 (Back)
-    startRemainingTimeTimer();
-
-    // 불러온 데이터를 바탕으로 초기 데이터 설정 (252일 데이터)
-    _initializeVisibleData();
-
-    // y축 범위 설정
-    updateYAxisRangeLastData();
-
-    notifyListeners();
-  }
-
-  // 모든 관련주 데이터 불러오기
-  Future<void> _loadAllData() async {
-    List<String> storageFiles = [];
-    try {
-      final storage = FirebaseStorage.instance.ref();
-      final Reference chartPathRef;
-      switch (_selectedScenario) {
-        case ScenarioType.disease:
-          chartPathRef = storage.child('scenario/covid/chart/');
-          break;
-        case ScenarioType.secondaryBattery:
-          chartPathRef = storage.child('scenario/secondary_battery/chart/');
-        default:
-          throw Exception('Invalid scenario type');
-      }
-      final ListResult result = await chartPathRef.listAll();
-
-      for (var item in result.items) {
-        storageFiles.add(item.name);
-      }
-
-      // 랜덤 선택을 위한 Random 객체 생성
-      Random random = Random();
-
-      // 리스트에서 랜덤으로 5개 선택
-      List<String> randomSelectedFiles = List.from(storageFiles)
-        ..shuffle(random);
-      randomSelectedFiles = randomSelectedFiles.sublist(0, 5);
-
-      _stockCSVPaths = {
-        "관련주 A": randomSelectedFiles[0],
-        "관련주 B": randomSelectedFiles[1],
-        "관련주 C": randomSelectedFiles[2],
-        "관련주 D": randomSelectedFiles[3],
-        "관련주 E": randomSelectedFiles[4],
-      };
-
-      dev.log('Loaded stock CSV paths: $_stockCSVPaths');
-
-      List<Future<void>> futures = [];
-
-      for (var stock in stockOptions) {
-        // stock을 인자로 직접 전달
-        futures.add(_loadDataForStock(stock));
-        futures.add(_loadInfoForStock(stock));
-        futures.add(_loadFinancialForStock(stock));
-      }
-      futures.add(_loadNewsForStock());
-
-      await Future.wait(futures);
-      for (var element in storedAllStockData['관련주 A']!) {
-        print(element.x);
-      }
-    } catch (e) {
-      dev.log('Unexpected error: $e');
-    }
-  }
-
-  Future<void> _loadDataForStock(String stock) async {
-    try {
-      final storageRef = FirebaseStorage.instance.ref();
-      Reference pathRef;
-      switch (_selectedScenario) {
-        case ScenarioType.disease:
-          pathRef =
-              storageRef.child("scenario/covid/chart/${stockCSVPaths[stock]!}");
-          break;
-        case ScenarioType.secondaryBattery:
-          pathRef = storageRef.child(
-              "scenario/secondary_battery/chart/${stockCSVPaths[stock]!}");
-          break;
-        default:
-          throw Exception('Invalid scenario type');
-      }
-
-      final url = await pathRef.getDownloadURL();
-      final response = await http.get(Uri.parse(url)); // http.get 사용
-
-      if (response.statusCode == 200) {
-        String csvString = response.body;
-
-        // CSV Data
-        List<List<dynamic>> csvStockData =
-            const CsvToListConverter().convert(csvString, eol: '\n');
-
-        _storedAllStockData[stock] = _parseCSVToStockData(csvStockData);
-        dev.log('Loaded CSV file for $stock chart');
-
-        notifyListeners();
-      } else {
-        throw Exception('Failed to load CSV file for $stock');
-      }
-    } catch (e) {
-      dev.log('Error loading DATA for $stock : $e');
-    }
-  }
-
-  List<StockData> _parseCSVToStockData(List<List<dynamic>> csvData) {
-    // 첫 번째 행(헤더)을 제거합니다.
-    csvData.removeAt(0);
-    return csvData.map((row) => StockData.fromList(row)).toList();
-  }
-
-  void _initializeVisibleData() {
-    dev.log("stockdata length: ${_storedAllStockData[_selectedStock]!.length}");
-
-    for (final stock in stockOptions) {
-      if (_storedAllStockData.containsKey(stock)) {
-        final stockData = _storedAllStockData[stock]!;
-        final int endIndex = stockData.length < 252 ? stockData.length : 252;
-        _visibleAllStockData[stock] = stockData.sublist(0, endIndex);
-      } else {
-        // 해당 주식 데이터가 없는 경우 빈 리스트로 초기화
-        _visibleAllStockData[stock] = [];
-      }
-    }
-  }
-
-  //* MARK: - 튜토리얼 관련
-  bool _isOnTutorial = false;
-  bool get isOnTutorial => _isOnTutorial;
-  void setIsOnTutorial(bool value) {
-    _isOnTutorial = value;
-    notifyListeners();
-  }
-
-  bool _isStartScenario = false;
-  bool get isStartScenario => _isStartScenario;
-  void setIsStartScenario(bool value) {
-    _isStartScenario = value;
-    notifyListeners();
-  }
-
-  //* MARK: - 시간 관리하는 부분 (Back)
-  void _updateVisibleStockData() {
-    dev.log("$_selectedStock 보여지는 데이터 업데이트");
-    if (_visibleAllStockData.containsKey(_selectedStock)) {
-      _visibleStockData = _visibleAllStockData[_selectedStock]!;
-      dev.log(
-          "visibleStockData length in updateVisibleStockData(): ${_visibleStockData.length}");
-
-      // 데이터가 비어있지 않은지 확인
-      currentStockTime = _visibleStockData.last.x;
-      if (q01Financial.year == 1900) {
-        q01Financial.year = currentStockTime.year;
-        q02Financial.year = currentStockTime.year;
-        q03Financial.year = currentStockTime.year;
-        q04Financial.year = currentStockTime.year;
-      }
-
-      // MARK: - 뉴스 데이터 업데이트
-      List<String> toRemove = [];
-      for (String newsDate in _allNewsKeys) {
-        DateTime newsDateTime = DateTime.parse(newsDate);
-        String formattedNewsDate =
-            '${newsDateTime.year.toString().padLeft(4, '0')}-${newsDateTime.month.toString().padLeft(2, '0')}-${newsDateTime.day.toString().padLeft(2, '0')}';
-
-        if (newsDateTime.isBefore(currentStockTime)) {
-          toRemove.add(newsDate);
-
-          Timestamp timestamp = _allNews[formattedNewsDate]["date"];
-          DateTime date = timestamp.toDate();
-
-          StockNews news = StockNews(
-            title: _allNews[formattedNewsDate]["title"],
-            content: _allNews[formattedNewsDate]["content"],
-            imageURL: _allNews[formattedNewsDate]["imageUrl"],
-            date: DateTime(date.year, date.month, date.day),
-          );
-
-          _news.add(news);
-
-          notifyListeners();
-        }
-      }
-      for (String key in toRemove) {
-        _allNewsKeys.remove(key);
-      }
-
-      // 현재 주식 종목 정보 업데이트
-      updateCurrentStockInfo();
-
-      // 현재 보유한 주식의 총 투자 금액 업데이트
-      updateTotalRatingPrice();
-
-      // 현재 보유한 주식의 총 평가 금액 업데이트
-      updateUnrealizedPnL();
-
-      // 분기 별 정보 업데이트
-      int month = currentStockTime.month;
-      if (month >= 1 && month <= 3) {
-        currentQuarter = Quarter.first;
-      } else if (month >= 4 && month <= 6) {
-        currentQuarter = Quarter.second;
-      } else if (month >= 7 && month <= 9) {
-        currentQuarter = Quarter.third;
-      } else {
-        currentQuarter = Quarter.fourth;
-      }
-      updateQuarterFinancialData();
-    } else {
-      _visibleStockData = [];
-      dev.log('Warning: No data found for $_selectedStock');
-    }
-
-    notifyListeners();
-  }
-
-  void updateYAxisRange(ActualRangeChangedArgs args) {
-    if (_visibleStockData.isEmpty) return;
-
-    // 현재 보이는 x축 범위
-    final xMin = args.visibleMin;
-    final xMax = args.visibleMax;
-
-    // x축 범위 내의 데이터 필터링
-    var filteredData = _visibleStockData.where((data) {
-      double dataXAsDouble =
-          data.x.millisecondsSinceEpoch.toDouble(); // DateTime을 double로 변환
-      return dataXAsDouble >= xMin && dataXAsDouble <= xMax;
-    }).toList();
-
-    if (filteredData.length < 2) return; // 필터링된 데이터가 없을 경우 종료
-
-    // 현재 보이는 데이터의 최소값과 최대값을 찾습니다.
-    double minLow =
-        filteredData.map((data) => data.low).reduce((a, b) => a < b ? a : b);
-    double maxHigh =
-        filteredData.map((data) => data.high).reduce((a, b) => a > b ? a : b);
-
-    // 값의 범위를 계산합니다.
-    double range = maxHigh - minLow;
-
-    // 최소값과 최대값에 여유 공간을 추가합니다 (전체 범위의 20%).
-    double padding = range * 0.2;
-    yMinimum = (minLow - padding).floorToDouble();
-    yMaximum = (maxHigh + padding).ceilToDouble();
-
-    // 간격을 계산합니다. 대략 5-7개의 간격이 생기도록 합니다.
-    double rawInterval = range / 6;
-
-    // 간격을 적절한 값으로 반올림합니다.
-    if (rawInterval > 10) {
-      yInterval = (rawInterval / 10).round() * 10.0;
-    } else if (rawInterval > 1) {
-      yInterval = (rawInterval).round().toDouble();
-    } else {
-      yInterval = (rawInterval * 10).round() / 10;
-    }
-
-    // yMinimum, yMaximum, yInterval 값을 업데이트한 후 리스너를 통지합니다.
-    notifyListeners();
-  }
-
-  void updateYAxisRangeLastData() {
-    dev.log("visibleStockData length: ${_visibleStockData.length}");
-
-    if (_visibleStockData.isEmpty) return;
-
-    // 전체 데이터에서 최근 252개의 데이터만 가져옵니다.
-    List<StockData> lastData = _visibleStockData.length > 252
-        ? _visibleStockData.sublist(_visibleStockData.length - 252)
-        : _visibleStockData;
-
-    if (lastData.length < 2) return; // 데이터가 없을 경우 종료
-
-    // 최근 252개 데이터의 최소값과 최대값을 찾습니다.
-    double minLow =
-        lastData.map((data) => data.low).reduce((a, b) => a < b ? a : b);
-    double maxHigh =
-        lastData.map((data) => data.high).reduce((a, b) => a > b ? a : b);
-
-    // 값의 범위를 계산합니다.
-    double range = maxHigh - minLow;
-
-    // 최소값과 최대값에 여유 공간을 추가합니다 (전체 범위의 10%).
-    double padding = range * 0.2;
-    yMinimum = (minLow - padding).floorToDouble();
-    yMaximum = (maxHigh + padding).ceilToDouble();
-
-    // 간격을 계산합니다. 대략 5-7개의 간격이 생기도록 합니다.
-    double rawInterval = range / 6;
-    // 간격을 적절한 값으로 반올림합니다.
-    if (rawInterval > 10) {
-      yInterval = (rawInterval / 10).round() * 10.0;
-    } else if (rawInterval > 1) {
-      yInterval = (rawInterval).round().toDouble();
-    } else {
-      yInterval = (rawInterval * 10).round() / 10;
-    }
-    // yMinimum, yMaximum, yInterval 값을 업데이트한 후 리스너를 통지합니다.
-    notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    stopDataUpdate();
-    stopRemainingTimeTimer();
-    super.dispose();
-  }
-
-  String explainTextbyCell(String cell) {
-    String explainText = "";
-    if (cell == "매출액") {
-      explainText =
-          "매출액은 기업이 판매한 상품이나 용역에 대한 대가로 받은 금액입니다. \n\n매출액 = 판매량 x 판매가격";
-    }
-    if (cell == "영업이익") {
-      explainText =
-          "영업이익은 기업이 영업활동을 통해 얻은 이익입니다. \n\n영업이익 = 매출액 - 매출원가 - 판매비와 관리비";
-    }
-    if (cell == "당기순이익") {
-      explainText = "당기순이익은 기업이 당기에 얻은 순이익입니다. \n\n당기순이익 = 영업이익 - 이자비용 - 세금";
-    }
-    if (cell == "자산총계") {
-      explainText = "자산총계는 기업이 보유한 자산의 총액입니다. \n\n자산총계 = 유동자산 + 비유동자산";
-    }
-    if (cell == "부채총계") {
-      explainText = "부채총계는 기업이 부담해야 하는 총부채의 총액입니다. \n\n부채총계 = 유동부채 + 비유동부채";
-    }
-    return explainText;
-  }
-
-  //*---------------------------------------------------------------------------
-  //* MARK: - 관련주 당 주식 종목 정보
+  //* MARK: - 주식 정보 관련 변수
 
   final Map<String, List<StockInfo>> _stockDataInfo = {};
   get stockDataInfo => _stockDataInfo;
-  void setStockDataInfo(String stock, List<StockInfo> stockInfo) {
-    _stockDataInfo[stock] = stockInfo;
-    notifyListeners();
-  }
 
   StockInfo currentStockInfo = StockInfo(
     date: DateTime.now(),
@@ -612,97 +126,8 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     marketCap: 0,
   );
 
-  void updateCurrentStockInfo() {
-    if (_stockDataInfo.containsKey(_selectedStock)) {
-      List<StockInfo> stockInfo = _stockDataInfo[_selectedStock]!;
-      currentStockInfo = stockInfo.firstWhere(
-        (element) => element.date == currentStockTime,
-        orElse: () => StockInfo(
-          date: DateTime.now(),
-          close: 0,
-          change: 0,
-          percentChange: 0,
-          eps: 0,
-          per: 0,
-          bps: 0,
-          pbr: 0,
-          dividendPerShare: 0,
-          dividendYield: 0,
-          marketCap: 0,
-        ),
-      );
-    } else {
-      currentStockInfo = StockInfo(
-        date: DateTime.now(),
-        close: 0,
-        change: 0,
-        percentChange: 0,
-        eps: 0,
-        per: 0,
-        bps: 0,
-        pbr: 0,
-        dividendPerShare: 0,
-        dividendYield: 0,
-        marketCap: 0,
-      );
-    }
-
-    notifyListeners();
-  }
-
-  List<StockInfo> _parseCSVToStockInfo(List<List<dynamic>> csvData) {
-    // 첫 번째 행(헤더)을 제거합니다.
-    csvData.removeAt(0);
-
-    return csvData.map((row) => StockInfo.fromList(row)).toList();
-  }
-
-  Future<void> _loadInfoForStock(String stock) async {
-    try {
-      final storageRef = FirebaseStorage.instance.ref();
-      Reference pathRef;
-      String stockID = stockCSVPaths[stock]![0];
-      switch (_selectedScenario) {
-        case ScenarioType.disease:
-          pathRef = storageRef.child("scenario/covid/info/${stockID}_info.csv");
-          break;
-        case ScenarioType.secondaryBattery:
-          pathRef = storageRef
-              .child("scenario/secondary_battery/info/${stockID}_info.csv");
-          break;
-        default:
-          throw Exception('Invalid scenario type');
-      }
-
-      final url = await pathRef.getDownloadURL();
-      final response = await http.get(Uri.parse(url)); // http.get 사용
-
-      if (response.statusCode == 200) {
-        String csvString = response.body;
-        // CSV Data
-        List<List<dynamic>> csvStockData =
-            const CsvToListConverter().convert(csvString, eol: '\n');
-        _stockDataInfo[stock] = _parseCSVToStockInfo(csvStockData);
-        dev.log('Loaded CSV file for $stock info');
-
-        notifyListeners();
-      } else {
-        throw Exception('Failed to load CSV file for $stock');
-      }
-    } catch (e) {
-      dev.log('Error loading INFO for $stock : $e');
-    }
-  }
-
-  //* MARK: 관련주 당 분기별 정보
-
   final Map<String, List<StockFinancial>> _stockDataFinancial = {};
   get stockDataFinancial => _stockDataFinancial;
-  void setStockDataFinancial(
-      String stock, List<StockFinancial> stockFinancial) {
-    _stockDataFinancial[stock] = stockFinancial;
-    notifyListeners();
-  }
 
   Quarter currentQuarter = Quarter.first;
 
@@ -739,10 +164,472 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     totalLiabilities: -1,
   );
 
+  Map<String, dynamic> _allNews = {};
+  Map<String, dynamic> get allNews => _allNews;
+  List<String> _allNewsKeys = [];
+  List<String> get allNewsKeys => _allNewsKeys;
+  final List<StockNews> _news = [];
+  List<StockNews> get news => _news;
+
+  //* MARK: - 시나리오 관련 함수
+
+  // 시나리오 시작할 때 남은시간 타이머 시작
+  void startRemainingTimeTimer() {
+    // back
+    dev.log("⏱️ 시나리오 남은 시간 타이머 시작");
+
+    if (storedAllStockData.isEmpty) return;
+
+    // 전체 남은 시간 계산
+    int totalMilliseconds =
+        ((storedAllStockData[selectedStock]!.length - 1 - _globalIndex) *
+                millisecondsPeriod)
+            .toInt();
+    _remainingTime = Duration(milliseconds: totalMilliseconds);
+
+    // 0.1초마다 남은 시간을 감소시키는 타이머
+    _remainingTimeTimer =
+        Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (_remainingTime.inMilliseconds > 0) {
+        _remainingTime -= const Duration(milliseconds: 100);
+
+        notifyListeners();
+      } else {
+        _remainingTimeTimer?.cancel();
+      }
+    });
+  }
+
+  DateTime checkScenarioEndTime() {
+    int totalMilliseconds =
+        ((storedAllStockData[selectedStock]!.length - 1 - _globalIndex) *
+                millisecondsPeriod)
+            .toInt();
+
+    // 밀리초를 초로 변환
+    int totalSeconds = (totalMilliseconds / 1000).floor();
+
+    // 분과 초 계산
+    int minutes = (totalSeconds / 60).floor();
+    int seconds = totalSeconds % 60;
+
+    // 시 계산
+    int hours = (minutes / 60).floor();
+    minutes = minutes % 60; // 남은 분 계산
+
+    DateTime endDateTime = DateTime.now().add(Duration(
+      hours: hours,
+      minutes: minutes,
+      seconds: seconds,
+    ));
+
+    return endDateTime;
+  }
+
+  // 시나리오 시간 흘러가도록 처리
+  void startDataUpdate() {
+    // back
+    _globalTimer =
+        Timer.periodic(Duration(milliseconds: millisecondsPeriod), (timer) {
+      _updateAllVisibleData();
+
+      // 현재 주식 종목 정보 업데이트
+      updateCurrentStockInfo();
+
+      // 현재 보유한 주식의 총 투자 금액 업데이트
+      updateTotalRatingPrice();
+
+      // 현재 보유한 주식의 총 평가 금액 업데이트
+      updateUnrealizedPnL();
+
+      // 현재 보유한 주식들의 각각 수익률 업데이트
+      setStockEarningRates();
+
+      // 현재 보유한 주식의 총 수익률 업데이트
+      setTotalEarningRate();
+
+      // 현재 주식 종목 정보 업데이트
+      checkFinancialInfoUpdate();
+
+      // 뉴스 데이터 업데이트
+      checkNewsUpdate();
+    });
+  }
+
+  void checkFinancialInfoUpdate() {
+    if (q01Financial.year == 1900) {
+      q01Financial.year = currentStockTime.year;
+      q02Financial.year = currentStockTime.year;
+      q03Financial.year = currentStockTime.year;
+      q04Financial.year = currentStockTime.year;
+    }
+
+    // 분기 별 정보 업데이트
+    int month = currentStockTime.month;
+    if (month >= 1 && month <= 3) {
+      currentQuarter = Quarter.first;
+    } else if (month >= 4 && month <= 6) {
+      currentQuarter = Quarter.second;
+    } else if (month >= 7 && month <= 9) {
+      currentQuarter = Quarter.third;
+    } else {
+      currentQuarter = Quarter.fourth;
+    }
+    updateQuarterFinancialData();
+  }
+
+  void checkNewsUpdate() {
+    List<String> toRemove = [];
+    for (String newsDate in _allNewsKeys) {
+      DateTime newsDateTime = DateTime.parse(newsDate);
+      String formattedNewsDate =
+          '${newsDateTime.year.toString().padLeft(4, '0')}-${newsDateTime.month.toString().padLeft(2, '0')}-${newsDateTime.day.toString().padLeft(2, '0')}';
+
+      if (newsDateTime.isBefore(currentStockTime)) {
+        toRemove.add(newsDate);
+
+        Timestamp timestamp = _allNews[formattedNewsDate]["date"];
+        DateTime date = timestamp.toDate();
+
+        StockNews news = StockNews(
+          title: _allNews[formattedNewsDate]["title"],
+          content: _allNews[formattedNewsDate]["content"],
+          imageURL: _allNews[formattedNewsDate]["imageUrl"],
+          date: DateTime(date.year, date.month, date.day),
+        );
+
+        _news.add(news);
+        LocalPushNotifications.showSimpleNotification(
+          title:
+              "${news.date.year}년 ${news.date.month}월 ${news.date.day}일 뉴스 업데이트",
+          body: news.title,
+          payload: "news",
+        );
+
+        notifyListeners();
+      }
+    }
+    for (String key in toRemove) {
+      _allNewsKeys.remove(key);
+    }
+  }
+
+  // 시나리오 시간 정지되도록 처리
+  void stopAllTimer() {
+    _globalTimer?.cancel();
+    _globalTimer = null;
+
+    _remainingTimeTimer?.cancel();
+    _remainingTimeTimer = null;
+  }
+
+  // 모든 주가 데이터 업데이트, millisecondPeriod마다 호출
+  Future<void> _updateAllVisibleData() async {
+    bool isScenarioEnd = true;
+
+    for (final stock in stockOptions) {
+      if (_globalIndex < storedAllStockData[stock]!.length - 1) {
+        visibleAllStockData[stock] =
+            storedAllStockData[stock]!.sublist(0, _globalIndex + 1);
+        isScenarioEnd = false;
+      } else {
+        visibleAllStockData[stock] = storedAllStockData[stock]!;
+      }
+    }
+
+    if (isScenarioEnd == false) {
+      _globalIndex++; // 다음 데이터 추가
+    }
+
+    // 선택된 주식의 visibleStockData 업데이트
+    _updateVisibleStockData();
+
+    // 시나리오 사이클 종료 시 처리
+    handleScenarioEnd(isScenarioEnd);
+
+    notifyListeners();
+  }
+
+  void handleScenarioEnd(bool isScenarioEnd) {
+    if (isScenarioEnd) {
+      dev.log('👏👏👏👏 시나리오 종료');
+      stopAllTimer(); // 모든 데이터를 표시했으면 타이머 중지
+
+      setScenarioIsRunning(false);
+
+      clearScenarioStatusData();
+
+      if (updateUserBalanceWhenFinish != null) {
+        dev.log("💵 사용자 잔액 업데이트");
+        updateUserBalanceWhenFinish!();
+      }
+      if (onNavigate != null) {
+        dev.log("🚀 페이지 이동");
+        onNavigate!();
+      }
+    }
+  }
+
+  //* Initialize
+  Future<void> initializeData() async {
+    dev.log("Data initialized");
+
+    // 모든 관련주 데이터 불러오기
+    await _loadAllData();
+
+    _updateAllVisibleData();
+
+    // 관련주 설명 업데이트
+    await getStockDescription();
+
+    // 데이터 업데이트 타이머 시작 (Back)
+    startDataUpdate();
+
+    // 남은 시간 타이머 시작 (Back)
+    startRemainingTimeTimer();
+
+    // 불러온 데이터를 바탕으로 초기 데이터 설정 (252일 데이터)
+    _initializeVisibleData();
+
+    notifyListeners();
+  }
+
+  void updateCurrentStatusWhenResume(ScenarioStatus status) {
+    Duration spendTime = DateTime.now().difference(status.terminatedAt);
+
+    _globalIndex = status.globalIndex +
+        (spendTime.inMilliseconds / millisecondsPeriod).floor();
+
+    dev.log("과거 global index: ${status.globalIndex}");
+    dev.log("현재 global index: $_globalIndex");
+
+    _updateAllVisibleData();
+
+    // 현재 주식 종목 정보 업데이트
+    updateCurrentStockInfo();
+
+    // 현재 보유한 주식의 총 투자 금액 업데이트
+    updateTotalRatingPrice();
+
+    // 현재 보유한 주식의 총 평가 금액 업데이트
+    updateUnrealizedPnL();
+
+    // 현재 보유한 주식들의 각각 수익률 업데이트
+    setStockEarningRates();
+
+    // 현재 보유한 주식의 총 수익률 업데이트
+    setTotalEarningRate();
+
+    // 현재 주식 종목 정보 업데이트
+    checkFinancialInfoUpdate();
+
+    // 뉴스 데이터 업데이트
+    checkNewsUpdate();
+
+    // 전체 남은 시간 계산
+    int totalMilliseconds =
+        ((storedAllStockData[selectedStock]!.length - 1 - _globalIndex) *
+                millisecondsPeriod)
+            .toInt();
+    _remainingTime = Duration(milliseconds: totalMilliseconds);
+
+    notifyListeners();
+  }
+
+  Future<void> updateCurrentStatusWhenOpenApp(ScenarioStatus status) async {
+    Duration spendTime = DateTime.now().difference(status.terminatedAt);
+
+    _globalIndex = status.globalIndex +
+        (spendTime.inMilliseconds / millisecondsPeriod).floor();
+
+    dev.log("과거 global index: ${status.globalIndex}");
+    dev.log("현재 global index: $_globalIndex");
+
+    // 모든 관련주 데이터 불러오기
+    await _loadAllData();
+
+    totalPurchasePrice = status.portfolio.totalPurchasePrice;
+    totalRatingPrice = status.portfolio.totalRatingPrice;
+    unrealizedPnL = status.portfolio.unrealizedPnL;
+    realizedPnL = status.portfolio.realizedPnL;
+    returnRate = status.portfolio.returnRate;
+    totalEarningRate = status.portfolio.totalEarningRate;
+
+    investStocks = status.portfolio.investStocks;
+    earningRates = status.portfolio.earningRates;
+    investRecords = status.portfolio.investRecords;
+
+    _updateAllVisibleData();
+
+    // 관련주 설명 업데이트
+    await getStockDescription();
+
+    // 데이터 업데이트 타이머 시작 (Back)
+    startDataUpdate();
+
+    // 남은 시간 타이머 시작 (Back)
+    startRemainingTimeTimer();
+
+    // 불러온 데이터를 바탕으로 초기 데이터 설정 (252일 데이터)
+    _initializeVisibleData();
+
+    notifyListeners();
+  }
+
+  // 모든 관련주 데이터 불러오기
+  Future<void> _loadAllData() async {
+    List<String> storageFiles = [];
+    try {
+      final storage = FirebaseStorage.instance.ref();
+      final Reference chartPathRef;
+      switch (selectedScenario) {
+        case ScenarioType.disease:
+          chartPathRef = storage.child('scenario/covid/chart/');
+          break;
+        case ScenarioType.secondaryBattery:
+          chartPathRef = storage.child('scenario/secondary_battery/chart/');
+        case ScenarioType.festival:
+          chartPathRef = storage.child('scenario/festival/chart/');
+          break;
+      }
+      final ListResult result = await chartPathRef.listAll();
+
+      for (var item in result.items) {
+        storageFiles.add(item.name);
+      }
+
+      // 랜덤 선택을 위한 Random 객체 생성
+      Random random = Random();
+
+      // 리스트에서 랜덤으로 5개 선택
+      List<String> randomSelectedFiles = List.from(storageFiles)
+        ..shuffle(random);
+      randomSelectedFiles = randomSelectedFiles.sublist(0, 5);
+      dev.log('Random selected files: $randomSelectedFiles');
+
+      stockCSVPaths = {
+        "관련주 A": randomSelectedFiles[0],
+        "관련주 B": randomSelectedFiles[1],
+        "관련주 C": randomSelectedFiles[2],
+        "관련주 D": randomSelectedFiles[3],
+        "관련주 E": randomSelectedFiles[4],
+      };
+
+      dev.log('Loaded stock CSV paths: $stockCSVPaths');
+
+      List<Future<void>> futures = [];
+
+      for (var stock in stockOptions) {
+        // stock을 인자로 직접 전달
+        futures.add(_loadDataForStock(stock));
+        futures.add(_loadInfoForStock(stock));
+        futures.add(_loadFinancialForStock(stock));
+      }
+      futures.add(_loadNewsForStock());
+
+      await Future.wait(futures);
+    } catch (e) {
+      dev.log('Unexpected error: $e');
+    }
+  }
+
+  List<StockData> _parseCSVToStockData(List<List<dynamic>> csvData) {
+    // 첫 번째 행(헤더)을 제거합니다.
+    csvData.removeAt(0);
+    return csvData.map((row) => StockData.fromList(row)).toList();
+  }
+
+  List<StockInfo> _parseCSVToStockInfo(List<List<dynamic>> csvData) {
+    // 첫 번째 행(헤더)을 제거합니다.
+    csvData.removeAt(0);
+
+    return csvData.map((row) => StockInfo.fromList(row)).toList();
+  }
+
   List<StockFinancial> _parseCSVToStockFinancial(List<List<dynamic>> csvData) {
     // 첫 번째 행(헤더)을 제거합니다.
     csvData.removeAt(0);
     return csvData.map((row) => StockFinancial.fromList(row)).toList();
+  }
+
+  Future<void> _loadDataForStock(String stock) async {
+    try {
+      final storageRef = FirebaseStorage.instance.ref();
+      Reference pathRef;
+      switch (selectedScenario) {
+        case ScenarioType.disease:
+          pathRef =
+              storageRef.child("scenario/covid/chart/${stockCSVPaths[stock]!}");
+          break;
+        case ScenarioType.secondaryBattery:
+          pathRef = storageRef.child(
+              "scenario/secondary_battery/chart/${stockCSVPaths[stock]!}");
+          break;
+        case ScenarioType.festival:
+          pathRef = storageRef
+              .child("scenario/festival/chart/${stockCSVPaths[stock]!}");
+          break;
+      }
+
+      final url = await pathRef.getDownloadURL();
+      final response = await http.get(Uri.parse(url)); // http.get 사용
+
+      if (response.statusCode == 200) {
+        String csvString = response.body;
+
+        // CSV Data
+        List<List<dynamic>> csvStockData =
+            const CsvToListConverter().convert(csvString, eol: '\n');
+
+        storedAllStockData[stock] = _parseCSVToStockData(csvStockData);
+        dev.log('Loaded CSV file for $stock chart');
+
+        notifyListeners();
+      } else {
+        throw Exception('Failed to load CSV file for $stock');
+      }
+    } catch (e) {
+      dev.log('Error loading DATA for $stock : $e');
+    }
+  }
+
+  Future<void> _loadInfoForStock(String stock) async {
+    try {
+      final storageRef = FirebaseStorage.instance.ref();
+      Reference pathRef;
+      String stockID = stockCSVPaths[stock]![0];
+      switch (selectedScenario) {
+        case ScenarioType.disease:
+          pathRef = storageRef.child("scenario/covid/info/${stockID}_info.csv");
+          break;
+        case ScenarioType.secondaryBattery:
+          pathRef = storageRef
+              .child("scenario/secondary_battery/info/${stockID}_info.csv");
+          break;
+        case ScenarioType.festival:
+          pathRef =
+              storageRef.child("scenario/festival/info/${stockID}_info.csv");
+          break;
+      }
+
+      final url = await pathRef.getDownloadURL();
+      final response = await http.get(Uri.parse(url)); // http.get 사용
+
+      if (response.statusCode == 200) {
+        String csvString = response.body;
+        // CSV Data
+        List<List<dynamic>> csvStockData =
+            const CsvToListConverter().convert(csvString, eol: '\n');
+        _stockDataInfo[stock] = _parseCSVToStockInfo(csvStockData);
+        dev.log('Loaded CSV file for $stock info');
+
+        notifyListeners();
+      } else {
+        throw Exception('Failed to load CSV file for $stock');
+      }
+    } catch (e) {
+      dev.log('Error loading INFO for $stock : $e');
+    }
   }
 
   Future<void> _loadFinancialForStock(String stock) async {
@@ -750,7 +637,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
       final storageRef = FirebaseStorage.instance.ref();
       Reference pathRef;
       String stockID = stockCSVPaths[stock]![0];
-      switch (_selectedScenario) {
+      switch (selectedScenario) {
         case ScenarioType.disease:
           pathRef = storageRef
               .child("scenario/covid/financial/${stockID}_financial.csv");
@@ -759,8 +646,10 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
           pathRef = storageRef.child(
               "scenario/secondary_battery/financial/${stockID}_financial.csv");
           break;
-        default:
-          throw Exception('Invalid scenario type');
+        case ScenarioType.festival:
+          pathRef = storageRef
+              .child("scenario/festival/financial/${stockID}_financial.csv");
+          break;
       }
 
       final url = await pathRef.getDownloadURL();
@@ -786,6 +675,193 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     }
   }
 
+  Future<void> _loadNewsForStock() async {
+    try {
+      final instance = FirebaseFirestore.instance;
+      final collection = instance.collection('scenario');
+      late DocumentSnapshot doc;
+
+      switch (selectedScenario) {
+        case ScenarioType.disease:
+          doc = await collection.doc('covid').get();
+          break;
+        case ScenarioType.secondaryBattery:
+          doc = await collection.doc('second_battery').get();
+          break;
+        case ScenarioType.festival:
+          doc = await collection.doc('festival').get();
+          break;
+      }
+
+      if (doc.exists) {
+        _allNews = doc.data() as Map<String, dynamic>;
+        _allNewsKeys = _allNews.keys.toList();
+
+        dev.log('Loaded firestore news data');
+        notifyListeners();
+      }
+    } catch (e) {
+      dev.log('Error loading news : $e');
+    }
+  }
+
+  void _initializeVisibleData() {
+    dev.log("stockdata length: ${storedAllStockData[selectedStock]!.length}");
+
+    for (final stock in stockOptions) {
+      if (storedAllStockData.containsKey(stock)) {
+        final stockData = storedAllStockData[stock]!;
+        final int endIndex = stockData.length < 21 ? stockData.length : 21;
+        visibleAllStockData[stock] = stockData.sublist(0, endIndex);
+      } else {
+        // 해당 주식 데이터가 없는 경우 빈 리스트로 초기화
+        visibleAllStockData[stock] = [];
+      }
+    }
+  }
+
+  //* 시간 관리하는 부분 (Back)
+  void _updateVisibleStockData() {
+    dev.log("$selectedStock 업데이트");
+    if (visibleAllStockData.containsKey(selectedStock)) {
+      visibleStockData = visibleAllStockData[selectedStock]!;
+
+      // 데이터가 비어있지 않은지 확인
+      currentStockTime = visibleStockData.last.x;
+    } else {
+      visibleStockData = [];
+      dev.log('Warning: No data found for $selectedStock');
+    }
+
+    notifyListeners();
+  }
+
+  //* MARK: - 변수 SETTER
+
+  void setSelectedScenario(ScenarioType scenario) {
+    selectedScenario = scenario;
+    notifyListeners();
+  }
+
+  // 드롭다운으로 관련주 변경
+  Future<void> setSelectedStock(String value) async {
+    selectedStock = value;
+    dev.log("변경한 관련주: ${stockCSVPaths[selectedStock]![0]}");
+
+    // 선택된 주식의 visibleStockData 업데이트
+    _updateAllVisibleData();
+
+    // 관련주 설명 업데이트
+    await getStockDescription();
+
+    notifyListeners();
+  }
+
+  void setOriginBalance(int value) {
+    originBalance = value;
+    notifyListeners();
+  }
+
+  // MARK: - dispose
+  @override
+  void dispose() {
+    stopAllTimer();
+    super.dispose();
+  }
+
+  // MARK: - 고정된 텍스트를 보여주는 함수
+
+  String explainTextbyCell(String cell) {
+    String explainText = "";
+    if (cell == "매출액") {
+      explainText =
+          "매출액은 기업이 판매한 상품이나 용역에 대한 대가로 받은 금액입니다. \n\n매출액 = 판매량 x 판매가격";
+    }
+    if (cell == "영업이익") {
+      explainText =
+          "영업이익은 기업이 영업활동을 통해 얻은 이익입니다. \n\n영업이익 = 매출액 - 매출원가 - 판매비와 관리비";
+    }
+    if (cell == "당기순이익") {
+      explainText = "당기순이익은 기업이 당기에 얻은 순이익입니다. \n\n당기순이익 = 영업이익 - 이자비용 - 세금";
+    }
+    if (cell == "자산총계") {
+      explainText = "자산총계는 기업이 보유한 자산의 총액입니다. \n\n자산총계 = 유동자산 + 비유동자산";
+    }
+    if (cell == "부채총계") {
+      explainText = "부채총계는 기업이 부담해야 하는 총부채의 총액입니다. \n\n부채총계 = 유동부채 + 비유동부채";
+    }
+    return explainText;
+  }
+
+  //*---------------------------------------------------------------------------
+  //* MARK: - 관련주 당 주식 종목 정보
+
+  Future<void> getStockDescription() async {
+    String stockID = stockCSVPaths[selectedStock]!.split('_').first;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('stock_info')
+        .doc(stockID)
+        .get();
+
+    if (doc.exists) {
+      selectedStockDescription = "$selectedStock는 ${doc['description']}";
+    } else {
+      selectedStockDescription = '해당 관련주 정보 없음';
+    }
+  }
+
+  void setStockDataInfo(String stock, List<StockInfo> stockInfo) {
+    _stockDataInfo[stock] = stockInfo;
+    notifyListeners();
+  }
+
+  void updateCurrentStockInfo() {
+    if (_stockDataInfo.containsKey(selectedStock)) {
+      List<StockInfo> stockInfo = _stockDataInfo[selectedStock]!;
+      currentStockInfo = stockInfo.firstWhere(
+        (element) => element.date == currentStockTime,
+        orElse: () => StockInfo(
+          date: DateTime.now(),
+          close: 0,
+          change: 0,
+          percentChange: 0,
+          eps: 0,
+          per: 0,
+          bps: 0,
+          pbr: 0,
+          dividendPerShare: 0,
+          dividendYield: 0,
+          marketCap: 0,
+        ),
+      );
+    } else {
+      currentStockInfo = StockInfo(
+        date: DateTime.now(),
+        close: 0,
+        change: 0,
+        percentChange: 0,
+        eps: 0,
+        per: 0,
+        bps: 0,
+        pbr: 0,
+        dividendPerShare: 0,
+        dividendYield: 0,
+        marketCap: 0,
+      );
+    }
+
+    notifyListeners();
+  }
+
+  //* MARK: 관련주 당 분기별 정보
+
+  void setStockDataFinancial(
+      String stock, List<StockFinancial> stockFinancial) {
+    _stockDataFinancial[stock] = stockFinancial;
+    notifyListeners();
+  }
+
   StockFinancial resetQuarterFinancialData() {
     return StockFinancial(
       year: currentStockTime.year - 1,
@@ -802,7 +878,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
     switch (currentQuarter) {
       case Quarter.first:
-        thisYearData = _stockDataFinancial[_selectedStock]!
+        thisYearData = _stockDataFinancial[selectedStock]!
             .where((data) => data.year == currentStockTime.year - 1)
             .toList();
         q04Financial = thisYearData.firstWhere(
@@ -818,7 +894,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
         );
         break;
       case Quarter.second:
-        thisYearData = _stockDataFinancial[_selectedStock]!
+        thisYearData = _stockDataFinancial[selectedStock]!
             .where((data) => data.year == currentStockTime.year)
             .toList();
         q01Financial = thisYearData.firstWhere(
@@ -835,7 +911,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
         break;
       case Quarter.third:
-        thisYearData = _stockDataFinancial[_selectedStock]!
+        thisYearData = _stockDataFinancial[selectedStock]!
             .where((data) => data.year == currentStockTime.year)
             .toList();
         q02Financial = thisYearData.firstWhere(
@@ -852,7 +928,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
         break;
       case Quarter.fourth:
-        thisYearData = _stockDataFinancial[_selectedStock]!
+        thisYearData = _stockDataFinancial[selectedStock]!
             .where((data) => data.year == currentStockTime.year)
             .toList();
         q03Financial = thisYearData.firstWhere(
@@ -873,10 +949,6 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
   //*---------------------------------------------------------------------------
   //* MARK: - 뉴스탭 관련
-  Map<String, dynamic> _allNews = {};
-  List<String> _allNewsKeys = [];
-  final List<StockNews> _news = [];
-  List<StockNews> get news => _news;
 
   List<StockNews> sortNewsList() {
     return List<StockNews>.from(news)
@@ -884,34 +956,6 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
         if (a.isRead == b.isRead) return 0;
         return a.isRead ? 1 : -1;
       });
-  }
-
-  Future<void> _loadNewsForStock() async {
-    try {
-      final instance = FirebaseFirestore.instance;
-      final collection = instance.collection('scenario');
-      late DocumentSnapshot doc;
-
-      switch (_selectedScenario) {
-        case ScenarioType.disease:
-          doc = await collection.doc('covid').get();
-          break;
-        case ScenarioType.secondaryBattery:
-          doc = await collection.doc('second_battery').get();
-          break;
-        default:
-      }
-
-      if (doc.exists) {
-        _allNews = doc.data() as Map<String, dynamic>;
-        _allNewsKeys = _allNews.keys.toList();
-
-        dev.log('Loaded firestore news data');
-        notifyListeners();
-      }
-    } catch (e) {
-      dev.log('Error loading news : $e');
-    }
   }
 
   int checkUnreadNews() {
@@ -924,7 +968,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     return unreadCount;
   }
 
-  // MARK: - 보유 주식 데이터
+  // MARK: - 보유 주식 데이터 (포트폴리오)
   int totalPurchasePrice = 0; // 총 구매 금액
 
   int totalRatingPrice = 0; // 평가 금액
@@ -933,30 +977,82 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
   int realizedPnL = 0; // 실현 손익
 
-  // [주식명: [보유량, 총 구매 금액]]
-  final Map<String, List<int>> _investStocks = {
+  double returnRate = 0; // 수익률
+
+  double totalEarningRate = 0; // 전체 수익률
+
+  // [주식명: [보유량, 매입단가 * 보유량]]
+  Map<String, List<int>> _investStocks = {
     '관련주 A': [0, 0],
     '관련주 B': [0, 0],
     '관련주 C': [0, 0],
     '관련주 D': [0, 0],
     '관련주 E': [0, 0],
   };
+
+  Map<String, double> _earningRates = {
+    '관련주 A': 0,
+    '관련주 B': 0,
+    '관련주 C': 0,
+    '관련주 D': 0,
+    '관련주 E': 0,
+  };
+
+  List<InvestRecord> _investRecords = [];
+
+  set investStocks(Map<String, List<int>> value) {
+    _investStocks = value;
+    notifyListeners();
+  }
+
+  set earningRates(Map<String, double> value) {
+    _earningRates = value;
+    notifyListeners();
+  }
+
+  set investRecords(List<InvestRecord> value) {
+    _investRecords = value;
+    notifyListeners();
+  }
+
+  Map<String, double> get earningRates => _earningRates;
+
+  // 전체 수익률 계산
+  void setTotalEarningRate() {
+    double profitContribution = 0;
+    int totalInvestPrice = 0;
+    if (totalPurchasePrice == 0) {
+      totalEarningRate = 0;
+    } else {
+      for (String stock in _investStocks.keys) {
+        double earningRate = _earningRates[stock]!;
+        if (earningRate.isNaN) {
+          earningRate = 0;
+        }
+        profitContribution += _investStocks[stock]![1] * earningRate;
+        totalInvestPrice += _investStocks[stock]![1];
+      }
+
+      totalEarningRate = profitContribution / totalInvestPrice;
+    }
+  }
+
   Map<String, List<int>> get investStocks => _investStocks;
   void setInvestStocks(String stock, TransactionType type, int amount) {
-    int currentAmount = _investStocks[stock]![0];
     if (type == TransactionType.buy) {
-      _investStocks[stock]![0] = currentAmount + amount;
+      _investStocks[stock]![0] += amount;
     } else {
-      _investStocks[stock]![0] = currentAmount - amount;
+      _investStocks[stock]![0] -= amount;
     }
 
-    int currentTotalPrice = _investStocks[stock]![1];
-    int price = _visibleAllStockData[stock]!.last.close.toInt();
+    int price = visibleAllStockData[stock]!.last.close.toInt(); // 현재가
     if (type == TransactionType.buy) {
-      _investStocks[stock]![1] = currentTotalPrice + price * amount;
+      _investStocks[stock]![1] += price * amount;
     } else {
-      _investStocks[stock]![1] = currentTotalPrice - price * amount;
+      _investStocks[stock]![1] -= price * amount;
     }
+
+    dev.log('보유 주식: $_investStocks');
 
     notifyListeners();
   }
@@ -970,7 +1066,6 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     return false;
   }
 
-  final List<InvestRecord> _investRecords = [];
   List<InvestRecord> get investRecords => _investRecords;
   void setInvestRecords(InvestRecord record) {
     _investRecords.add(record);
@@ -991,8 +1086,10 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
   void updateTotalPurchasePrice() {
     int total = 0;
-    for (String stock in _investStocks.keys) {
-      total += _investStocks[stock]![1];
+    for (InvestRecord record in _investRecords) {
+      if (record.type == TransactionType.buy) {
+        total += record.price * record.amount;
+      }
     }
     totalPurchasePrice = total;
 
@@ -1000,11 +1097,16 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   }
 
   void updateUnrealizedPnL() {
+    if (totalRatingPrice == 0) {
+      unrealizedPnL = 0;
+      return;
+    }
+
     int total = 0;
     for (String stock in _investStocks.keys) {
       int currentValue = _investStocks[stock]![0] *
-          visibleAllStockData[stock]!.last.close.toInt();
-      int purchaseValue = _investStocks[stock]![1];
+          visibleAllStockData[stock]!.last.close.toInt(); // 현재가
+      int purchaseValue = _investStocks[stock]![1]; // 매입단가 * 보유량
       total += (currentValue - purchaseValue);
     }
 
@@ -1013,22 +1115,24 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     notifyListeners();
   }
 
+  // 실현손익 업데이트
+  // 실현손익 = 매도 당시 가격 (현재가 * 매도종목수) - 매수 당시 가격 (매수가 * 매수종목수)
   void updateRealizedPnL(InvestRecord record) {
-    int averagePrice;
-    if (_investStocks[selectedStock]![0] != 0) {
-      averagePrice =
-          _investStocks[selectedStock]![1] ~/ _investStocks[selectedStock]![0];
-    } else {
-      averagePrice = 0;
+    int currentPrice = record.price; // 현재가
+    int purchasePrice;
+    try {
+      purchasePrice = _investStocks[record.stock]![1] ~/
+          _investStocks[record.stock]![0]; // 매입단가
+    } catch (e) {
+      if (e is UnsupportedError) {
+        purchasePrice = 0; // 기본값 설정
+        dev.log("Error: Division by zero for stock: ${record.stock}");
+      } else {
+        rethrow;
+      }
     }
 
-    int currentPrice = visibleAllStockData[selectedStock]!.last.close.toInt();
-    int amount = record.amount;
-
-    if (record.type == TransactionType.sell) {
-      realizedPnL += (currentPrice - averagePrice) * amount;
-    }
-    dev.log('This Realized PnL: ${(currentPrice - averagePrice) * amount}}');
+    realizedPnL = (currentPrice - purchasePrice) * record.amount;
 
     notifyListeners();
   }
@@ -1069,24 +1173,48 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     return total;
   }
 
+  void setStockEarningRates() {
+    for (String stock in _investStocks.keys) {
+      int totalInvestPrice = 0;
+      for (InvestRecord record in _investRecords) {
+        if (record.stock == stock) {
+          if (record.type == TransactionType.buy) {
+            totalInvestPrice += record.price * record.amount;
+          } else {
+            totalInvestPrice -= record.price * record.amount;
+          }
+        }
+      }
+      int totalValuationPrice =
+          (investStocks[stock]![0] * visibleAllStockData[stock]!.last.close)
+              .toInt();
+
+      double earningRate =
+          (totalValuationPrice - totalInvestPrice) / totalInvestPrice * 100;
+
+      _earningRates[stock] = earningRate;
+    }
+  }
+
   // MARK: - 시나리오 초기화
   void resetAllData() {
     dev.log("Resetting all data");
 
     _globalIndex = 20;
+    // _globalIndex = 0;
 
-    _visibleAllStockData.clear();
-    _visibleStockData.clear();
-    _storedAllStockData.clear();
+    visibleAllStockData.clear();
+    visibleStockData.clear();
+    storedAllStockData.clear();
     _stockDataInfo.clear();
     _stockDataFinancial.clear();
     _news.clear();
     _allNews.clear();
     _allNewsKeys.clear();
 
-    _stockCSVPaths.clear();
-    _selectedStock = '관련주 A';
-    _isChangeStock = false;
+    stockCSVPaths.clear();
+    selectedStock = '관련주 A';
+    // isChangeStock = false;
 
     _investRecords.clear();
     _investStocks.forEach((key, value) {
@@ -1098,19 +1226,30 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     unrealizedPnL = 0;
     realizedPnL = 0;
 
-    _selectedScenario = null;
+    stopAllTimer();
 
-    stopDataUpdate();
-    stopRemainingTimeTimer();
+    clearScenarioStatusData();
 
     notifyListeners();
   }
 
-  // MARK: - 타임 오버 이후
+  // TODO: MARK: 파베에서 가져오도록 수정해야함
+  // 시나리오 주제 제목 불러오기
+  String getScenarioTitle(ScenarioType type) {
+    switch (type) {
+      case ScenarioType.disease:
+        return '질병과 주식';
+      case ScenarioType.secondaryBattery:
+        return '2차전지와 주식';
+      case ScenarioType.festival:
+        return '2024 한동대학교 가을축제 LISTEN';
+    }
+  }
+
   String timeoverCommentMsg() {
     String comment = "";
 
-    switch (_selectedScenario) {
+    switch (selectedScenario) {
       case ScenarioType.disease:
         comment =
             "코로나는 우리 일상에 많은 변화를 가져다주었어요.\n\n전 세계에 큰 변화를 불러온 코로나는 경제/주가에 어떤 영향을 미쳤는지 함께 알아볼까요?";
@@ -1119,7 +1258,9 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
         comment = "전기차 시대가 도래하면서 2차전지 관련주들이 주목받고 있어요.\n\n"
             "2차전지 관련주들의 주가는 어떻게 변화했는지 함께 알아볼까요?";
         break;
-      default:
+      case ScenarioType.festival:
+        comment = "다들 축제 재밌게 즐기고 계신가요?\n\n"
+            "MOTU앱을 통해 재밌게 주식 투자를 배워보시는 건 어떨까요?";
     }
 
     return comment;

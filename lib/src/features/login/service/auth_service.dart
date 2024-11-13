@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:motu/main.dart';
+import 'package:motu/src/design/color_theme.dart';
 import 'package:motu/src/features/scenario/model/scenario_result.dart';
 import 'package:motu/src/common/model/user_model.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -32,26 +33,27 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<User?> signInWithEmailAndPassword(
-      String email, String password) async {
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      User? user = userCredential.user;
-      notifyListeners();
-      return user;
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        dev.log('No user found for that email.');
-      } else if (e.code == 'wrong-password') {
-        dev.log('Wrong password provided for that user.');
-      }
-      notifyListeners();
-      return null;
-    }
+  bool _isPrivacyPolicyChecked = false;
+
+  void setPrivacyPolicyChecked() {
+    _isPrivacyPolicyChecked = !_isPrivacyPolicyChecked;
+    notifyListeners();
   }
+
+  bool get isPrivacyPolicyChecked => _isPrivacyPolicyChecked;
+
+  // bool checkBlank() {
+  //   if (emailController.text.isEmpty ||
+  //       passwordController.text.isEmpty ||
+  //       passwordConfirmController.text.isEmpty ||
+  //       nameController.text.isEmpty ||
+  //       !_isPrivacyPolicyChecked) {
+  //     notifyListeners();
+  //     return false;
+  //   }
+  //   notifyListeners();
+  //   return true;
+  // }
 
   Future<User?> registerWithEmailAndPassword(
       String email, String password, String name) async {
@@ -71,6 +73,7 @@ class AuthService with ChangeNotifier {
         } else {
           dev.log("유저 정보가 없으므로 추가합니다.");
           await addEmailUserInfo(name);
+          await getUserInfo();
         }
 
         notifyListeners();
@@ -134,39 +137,51 @@ class AuthService with ChangeNotifier {
   }
 
   Future<User?> signInWithGoogle() async {
-    // Trigger the authentication flow
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
-    // Obtain the auth details from the request
-    final GoogleSignInAuthentication? googleAuth =
-        await googleUser?.authentication;
-
-    // Create a new credential
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth?.accessToken,
-      idToken: googleAuth?.idToken,
-    );
-
-    await _auth.signInWithCredential(credential);
-
-    if (_auth.currentUser != null) {
-      dev.log('Google dev.login Success: ${_auth.currentUser!.displayName}');
-
-      bool isUserInfoExists = await checkUserInfoExists();
-      if (isUserInfoExists) {
-        dev.log("유저 정보가 이미 존재합니다.");
-        await getUserInfo();
-      } else {
-        await addUserInfo();
-        dev.log("유저 정보가 없으므로 추가합니다.");
+      // Check if the user canceled the sign-in process
+      if (googleUser == null) {
+        dev.log('Google sign-in canceled by user');
+        return null; // User canceled the sign-in
       }
 
-      notifyListeners();
-      return _auth.currentUser;
-    } else {
-      dev.log('Google dev.login Fail: No User Found');
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
-      notifyListeners();
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        dev.log('Google login success: ${userCredential.user!.displayName}');
+
+        bool isUserInfoExists = await checkUserInfoExists();
+        if (isUserInfoExists) {
+          dev.log("User info already exists.");
+          await getUserInfo();
+        } else {
+          dev.log("User info does not exist, adding user.");
+          await addUserInfo();
+        }
+
+        notifyListeners(); // Notify listeners after state change
+        return userCredential.user; // Return the user
+      } else {
+        dev.log('Google login failed: No user found');
+        return null; // No user found
+      }
+    } catch (error) {
+      dev.log('Error during Google sign-in: $error');
+      // Handle error appropriately (e.g., show a message to the user)
       return null;
     }
   }
@@ -197,6 +212,7 @@ class AuthService with ChangeNotifier {
       } else {
         dev.log("유저 정보가 없음");
         await addAppleUserInfo();
+        await getUserInfo();
       }
 
       notifyListeners();
@@ -232,12 +248,12 @@ class AuthService with ChangeNotifier {
         email: _auth.currentUser!.email!,
         name: _auth.currentUser!.displayName ?? "",
         photoUrl: _auth.currentUser!.photoURL ?? "",
-        balance: 1000000,
+        balance: 10000000,
         balanceHistory: [
           BalanceDetail(
             date: DateTime.now(),
             content: "초기 자금",
-            amount: 1000000,
+            amount: 10000000,
             isIncome: true,
           ),
         ],
@@ -252,6 +268,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      getUserInfo();
     }
   }
 
@@ -262,12 +280,12 @@ class AuthService with ChangeNotifier {
         email: _auth.currentUser!.email!,
         name: name,
         photoUrl: _auth.currentUser!.photoURL ?? "",
-        balance: 1000000,
+        balance: 10000000,
         balanceHistory: [
           BalanceDetail(
             date: DateTime.now(),
             content: "초기 자금",
-            amount: 1000000,
+            amount: 10000000,
             isIncome: true,
           ),
         ],
@@ -282,6 +300,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      await getUserInfo();
     }
   }
 
@@ -292,12 +312,12 @@ class AuthService with ChangeNotifier {
         email: _auth.currentUser!.email!,
         name: _auth.currentUser!.email!.split('@').first,
         photoUrl: "",
-        balance: 1000000,
+        balance: 10000000,
         balanceHistory: [
           BalanceDetail(
             date: DateTime.now(),
             content: "초기 자금",
-            amount: 1000000,
+            amount: 10000000,
             isIncome: true,
           ),
         ],
@@ -312,6 +332,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      await getUserInfo();
     }
 
     notifyListeners();
@@ -350,7 +372,9 @@ class AuthService with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<DateTime>> getAttendance() async {
+  List<DateTime> attendanceDates = [];
+
+  Future<void> getAttendance() async {
     User? user = _auth.currentUser;
     if (user != null) {
       DocumentSnapshot doc =
@@ -358,13 +382,16 @@ class AuthService with ChangeNotifier {
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         List<dynamic> attendanceList = data['attendance'] ?? [];
-        List<DateTime> attendanceDates = attendanceList
+        List<DateTime> result = attendanceList
             .map((timestamp) => (timestamp as Timestamp).toDate())
             .toList();
-        return attendanceDates;
+
+        dev.log(result.toString());
+        attendanceDates = result;
       }
     }
-    return [];
+
+    notifyListeners();
   }
 
   void setUserBalance(int amount) {
@@ -466,5 +493,194 @@ class AuthService with ChangeNotifier {
     } catch (e) {
       print('Error saving quiz completion: $e');
     }
+  }
+
+  //* MARK: 출석체크 관련
+  Future<void> checkAttendance(BuildContext context) async {
+    bool confirmed = false;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          contentPadding: const EdgeInsets.all(40.0),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '오늘의 출석 체크를\n하시겠습니까?',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Align(
+                alignment: Alignment.center,
+                child: Image.asset(
+                  'assets/images/stamp.png',
+                  width: 100,
+                  height: 100,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: ColorTheme.colorDisabled,
+                    minimumSize: const Size(100, 30),
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                  ),
+                  child: const Text(
+                    '취소',
+                    style: TextStyle(
+                      color: ColorTheme.colorBlack,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    confirmed = true;
+                    Navigator.of(context).pop();
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: ColorTheme.colorPrimary,
+                    minimumSize: const Size(100, 30),
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                  ),
+                  child: const Text(
+                    '확인',
+                    style: TextStyle(
+                      color: ColorTheme.colorWhite,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed) {
+      try {
+        bool hasAttended = await loadAttendance();
+        if (hasAttended) {
+          // 이미 출석한 경우
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '오늘은 이미 출석 체크가 완료되었습니다.',
+                style: TextStyle(color: ColorTheme.colorWhite),
+              ),
+              backgroundColor: ColorTheme.colorPrimary80,
+            ),
+          );
+        } else {
+          // 출석이 완료된 경우
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '출석 체크가 완료되었습니다!',
+                style: TextStyle(color: ColorTheme.colorWhite),
+              ),
+              backgroundColor: ColorTheme.colorPrimary80,
+            ),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '출석 체크 중 오류가 발생했습니다.',
+              style: TextStyle(color: ColorTheme.colorWhite),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+
+    notifyListeners();
+  }
+
+  Future<bool> loadAttendance() async {
+    User? user = _auth.currentUser;
+    if (user != null) {
+      DocumentReference userDoc = _firestore.collection('user').doc(user.uid);
+      DocumentSnapshot doc = await userDoc.get();
+
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+      List<dynamic> attendance = data['attendance'] ?? [];
+      DateTime now = DateTime.now();
+
+      // 오늘 출석 기록을 확인
+      bool hasAttendedToday = attendance.any((date) {
+        DateTime dateTime = (date as Timestamp).toDate();
+        return dateTime.year == now.year &&
+            dateTime.month == now.month &&
+            dateTime.day == now.day;
+      });
+
+      // 이미 출석한 경우 true 반환
+      if (hasAttendedToday) {
+        return true;
+      }
+
+      // 출석 기록 추가
+      attendance.add(Timestamp.fromDate(now));
+
+      // 최신 7개의 출석 기록만 유지
+      if (attendance.length > 7) {
+        attendance = attendance.sublist(attendance.length - 7);
+      }
+
+      // 출석 기록을 날짜 순으로 정렬
+      attendance.sort((a, b) =>
+          (a as Timestamp).toDate().compareTo((b as Timestamp).toDate()));
+
+      // 7일 연속 출석 여부 확인
+      bool isConsecutive = true;
+      for (int i = 0; i < attendance.length - 1; i++) {
+        DateTime current = (attendance[i] as Timestamp).toDate();
+        DateTime next = (attendance[i + 1] as Timestamp).toDate();
+
+        // 두 날짜가 연속적인지 확인 (차이가 1일이어야 함)
+        if (next.difference(current).inDays != 1) {
+          isConsecutive = false;
+          break;
+        }
+      }
+
+      // 연속 7일 출석 시 보상 지급
+      if (attendance.length == 7 && isConsecutive) {
+        try {
+          print("Updating user balance...");
+          await AuthService().updateUserBalance(user.uid, 50000, "7일 연속 출석 보상");
+          print("User balance updated successfully");
+        } catch (e) {
+          print('Error in updateUserBalance: $e');
+        }
+      }
+
+      // 출석 기록 업데이트
+      await userDoc.update({
+        'attendance': attendance,
+      });
+      print("Attendance updated successfully");
+
+      // 새로운 출석 기록이 추가되었음을 반환
+      return false;
+    }
+    return false; // 유저가 없을 경우 출석 실패로 처리
   }
 }
