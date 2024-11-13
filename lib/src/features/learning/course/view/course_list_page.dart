@@ -1,9 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // FirebaseAuth 추가
 import '../../../../design/color_theme.dart';
-import 'course_map_screen.dart';
+import 'course_map_page.dart'; // Updated import
 
 class CourseListPage extends StatelessWidget {
-  const CourseListPage({super.key});
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String userUid = FirebaseAuth.instance.currentUser?.uid ?? ''; // 사용자 uid를 필드로 추가
+
+  CourseListPage({super.key});
+
+  Future<List<Map<String, dynamic>>> fetchCourses() async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore.collection('course').get();
+      return querySnapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['course_id'] = doc.id; // course_id 추가
+        return data;
+      }).toList();
+    } catch (e) {
+      print(e);
+      return [];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,81 +33,85 @@ class CourseListPage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ListView(
-                children: [
-                  buildCourseCard(context, '기초 경제 코스', '경제의 기본 개념을 배워보세요.'),
-                  buildCourseCard(
-                      context, '주식 투자의 기초', '주식 투자의 기본을 배우고 시작해보세요.'),
-                  buildCourseCard(context, '기초 금융 코스', '금융의 기본을 배우고 지식을 쌓으세요.'),
-                  // Add more courses here
-                ],
-              ),
-            ),
-          ],
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: fetchCourses(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No courses found.'));
+            } else {
+              final courses = snapshot.data!;
+              return ListView.builder(
+                itemCount: courses.length,
+                itemBuilder: (context, index) {
+                  final course = courses[index];
+                  return buildCourseCard(
+                    context,
+                    course['course_id'],
+                    course['course_name'] ?? 'Unknown Course',
+                    course['description'] ?? 'No description available.',
+                  );
+                },
+              );
+            }
+          },
         ),
       ),
     );
   }
 
   Widget buildCourseCard(
-      BuildContext context, String title, String description) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 15),
-      elevation: 3,
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16.0),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: ColorTheme.colorPrimary,
+      BuildContext context, String courseId, String courseName, String description) {
+    return GestureDetector(
+      onTap: () {
+        navigateToCourseMap(context, courseId);
+      },
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 15),
+        elevation: 3,
+        child: SizedBox(
+          height: 130, // 고정 높이 설정
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  courseName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: ColorTheme.colorPrimary,
+                  ),
+                  maxLines: 1, // 한 줄로 제한
+                  overflow: TextOverflow.ellipsis, // 텍스트가 길 경우 말줄임표로 표시
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  maxLines: 3, // 최대 3줄까지 표시
+                  overflow: TextOverflow.ellipsis, // 넘칠 경우 말줄임표로 표시
+                ),
+              ],
+            ),
           ),
         ),
-        subtitle: Text(description),
-        trailing: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            elevation: 2,
-          ),
-          onPressed: () {
-            navigateToCourseMap(context, title, description); // 설명 전달
-          },
-          child: const Text(
-            '시작하기',
-            style: TextStyle(color: ColorTheme.colorPrimary),
-          ),
-        ),
-        onTap: () {
-          navigateToCourseMap(context, title, description); // 설명 전달
-        },
       ),
     );
   }
 
-  void navigateToCourseMap(
-      BuildContext context, String courseTitle, String description) {
-    List<String> stages = [];
-
-    if (courseTitle == '기초 경제 코스') {
-      stages = ['기초 개념', '경제 원리', '시장 구조', '거시 경제', '경제 실습'];
-    } else if (courseTitle == '주식 투자의 기초') {
-      stages = ['주식의 이해', '투자 전략', '포트폴리오 구성', '리스크 관리', '주식 실습'];
-    } else if (courseTitle == '기초 금융 코스') {
-      stages = ['금융의 이해', '자산 관리', '투자 기본', '금융 리스크', '금융 실습'];
-    }
-
+  void navigateToCourseMap(BuildContext context, String courseId) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CourseMapScreen(
-            courseName: courseTitle,
-            courseDescription: description,
-            stages: stages),
+        builder: (context) => CourseMapPage(
+          courseId: courseId,
+          uid: userUid, // userUid 전달
+        ),
       ),
     );
   }

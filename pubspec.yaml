@@ -121,6 +121,7 @@ flutter:
     - assets/images/profile/
     - assets/images/character/
     - assets/images/icon/
+    - assets/images/course/
     - assets/images/gif/
     - .env
 
