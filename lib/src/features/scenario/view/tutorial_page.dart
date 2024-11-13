@@ -70,9 +70,8 @@ class TutorialPageState extends State<TutorialPage> {
                       // 유저 기존 자금 저장
                       service.setOriginBalance(
                           Provider.of<AuthService>(context, listen: false)
-                                  .user
-                                  ?.balance ??
-                              0);
+                              .user!
+                              .balance);
 
                       // 시나리오 지정
                       service.setSelectedScenario(widget.type);

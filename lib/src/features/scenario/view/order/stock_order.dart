@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gif/gif.dart';
 import 'package:intl/intl.dart';
 import 'package:motu/src/features/scenario/model/stock_data.dart';
 import 'package:motu/src/common/util/util.dart';
@@ -115,13 +116,16 @@ class _StockOrderTabState extends State<StockOrderTab> {
 
     return Consumer<ScenarioService>(builder: (context, service, child) {
       if (service.visibleStockData.isEmpty) {
-        return const Center(
+        return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text("차트를 불러오고 있습니다..."),
+              Gif(
+                image: const AssetImage('assets/images/gif/loading.gif'),
+                autostart: Autostart.loop,
+                fit: BoxFit.fill,
+              ),
+              const Text("차트를 불러오고 있습니다"),
             ],
           ),
         );
@@ -136,51 +140,7 @@ class _StockOrderTabState extends State<StockOrderTab> {
             body: SingleChildScrollView(
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: Container(
-                      width: screenSize.width / 2,
-                      height: screenSize.height / 16,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black54,
-                            blurRadius: 1,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(6.0),
-                              child: Image.asset(
-                                'assets/images/scenario/info_time.png',
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
-                                  style: const TextStyle(fontSize: 18),
-                                ),
-                              ],
-                            ),
-                            const Opacity(
-                              opacity: 0,
-                              child: Icon(Icons.abc),
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  SizedBox(height: screenSize.height / 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: Container(
@@ -262,251 +222,226 @@ class _StockOrderTabState extends State<StockOrderTab> {
                           ),
                           SizedBox(
                             // height: screenSize.height * 0.45,
-                            child: service.isChangeStock
-                                ? SizedBox(
-                                    height: screenSize.height * 0.5,
-                                    child: const Center(
-                                        child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        CircularProgressIndicator(),
-                                        SizedBox(height: 16),
-                                        Text("관련주 불러오는 중.."),
-                                      ],
-                                    )),
-                                  )
-                                : Column(
-                                    children: [
-                                      SizedBox(
-                                        height: screenSize.height * 0.35,
-                                        child: SfCartesianChart(
-                                          key: priceKey,
-                                          // 주요 X축, Y축 설정
-                                          primaryXAxis: DateTimeCategoryAxis(
-                                            // isVisible: false,
-                                            dateFormat:
-                                                CustomDateFormat('custom'),
-                                            interval: 3,
-                                            majorGridLines:
-                                                const MajorGridLines(width: 0),
-                                            edgeLabelPlacement:
-                                                EdgeLabelPlacement.shift,
-                                            initialVisibleMinimum: service
-                                                .visibleStockData.last.x
-                                                .subtract(
-                                                    const Duration(days: 21)),
-                                            minimum: service
-                                                .visibleStockData.first.x,
-                                            maximum:
-                                                service.visibleStockData.last.x,
-                                          ),
-                                          primaryYAxis: NumericAxis(
-                                            placeLabelsNearAxisLine: false,
-                                            anchorRangeToVisiblePoints: true,
-                                            rangePadding:
-                                                ChartRangePadding.round,
-                                            opposedPosition: true,
-                                            axisLabelFormatter:
-                                                (axisLabelRenderArgs) {
-                                              int value = int.parse(
-                                                  axisLabelRenderArgs.text);
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: screenSize.height * 0.35,
+                                  child: SfCartesianChart(
+                                    key: priceKey,
+                                    // 주요 X축, Y축 설정
+                                    primaryXAxis: DateTimeCategoryAxis(
+                                      // isVisible: false,
+                                      dateFormat: CustomDateFormat('custom'),
+                                      interval: 3,
+                                      majorGridLines:
+                                          const MajorGridLines(width: 0),
+                                      edgeLabelPlacement:
+                                          EdgeLabelPlacement.shift,
+                                      initialVisibleMinimum: service
+                                          .visibleStockData.last.x
+                                          .subtract(const Duration(days: 21)),
+                                      minimum: service.visibleStockData.first.x,
+                                      maximum: service.visibleStockData.last.x,
+                                    ),
+                                    primaryYAxis: NumericAxis(
+                                      placeLabelsNearAxisLine: false,
+                                      anchorRangeToVisiblePoints: true,
+                                      rangePadding: ChartRangePadding.round,
+                                      opposedPosition: true,
+                                      axisLabelFormatter:
+                                          (axisLabelRenderArgs) {
+                                        int value =
+                                            int.parse(axisLabelRenderArgs.text);
 
-                                              String formattedValue;
+                                        String formattedValue;
 
-                                              // Y축 값에 따라 레이블 포맷 변경
-                                              if (value >= 10000000) {
-                                                formattedValue =
-                                                    '${(value / 10000000).toStringAsFixed(0)}천만';
-                                              } else if (value >= 1000000) {
-                                                formattedValue =
-                                                    '${(value / 1000000).toStringAsFixed(1)}백만';
-                                              } else if (value >= 100000) {
-                                                formattedValue =
-                                                    '${(value / 100000).toStringAsFixed(1)}십만';
-                                              } else if (value >= 10000) {
-                                                formattedValue =
-                                                    '${(value / 10000).toStringAsFixed(1)}만';
-                                              } else {
-                                                formattedValue =
-                                                    axisLabelRenderArgs
-                                                        .text; // 기본 포맷
-                                              }
+                                        // Y축 값에 따라 레이블 포맷 변경
+                                        if (value >= 10000000) {
+                                          formattedValue =
+                                              '${(value / 10000000).toStringAsFixed(0)}천만';
+                                        } else if (value >= 1000000) {
+                                          formattedValue =
+                                              '${(value / 1000000).toStringAsFixed(1)}백만';
+                                        } else if (value >= 100000) {
+                                          formattedValue =
+                                              '${(value / 100000).toStringAsFixed(1)}십만';
+                                        } else if (value >= 10000) {
+                                          formattedValue =
+                                              '${(value / 10000).toStringAsFixed(1)}만';
+                                        } else {
+                                          formattedValue =
+                                              axisLabelRenderArgs.text; // 기본 포맷
+                                        }
 
-                                              return ChartAxisLabel(
-                                                formattedValue,
-                                                const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              );
-                                            },
+                                        return ChartAxisLabel(
+                                          formattedValue,
+                                          const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
                                           ),
+                                        );
+                                      },
+                                    ),
 
-                                          // series 데이터 설정
-                                          series: <CartesianSeries<StockData,
-                                              DateTime>>[
-                                            // 캔들 시리즈
-                                            CandleSeries<StockData, DateTime>(
-                                              dataSource:
-                                                  service.visibleStockData,
-                                              xValueMapper:
-                                                  (StockData data, _) => data.x,
-                                              openValueMapper:
-                                                  (StockData data, _) =>
-                                                      data.open,
-                                              closeValueMapper:
-                                                  (StockData data, _) =>
-                                                      data.close,
-                                              lowValueMapper:
-                                                  (StockData data, _) =>
-                                                      data.low,
-                                              highValueMapper:
-                                                  (StockData data, _) =>
-                                                      data.high,
-                                              enableSolidCandles: true,
-                                              emptyPointSettings:
-                                                  const EmptyPointSettings(
-                                                mode: EmptyPointMode.gap,
-                                              ),
-                                              bearColor: Colors.blue,
-                                              bullColor: Colors.red,
-                                              animationDelay: 0,
-                                              animationDuration: 500,
-                                            ),
-                                          ],
-                                          // 십자선 설정
-                                          crosshairBehavior: CrosshairBehavior(
-                                            enable: true,
-                                            activationMode:
-                                                ActivationMode.longPress,
-                                            lineType: CrosshairLineType.both,
-                                            lineColor: Colors.grey,
-                                            lineWidth: 1,
-                                            lineDashArray: const <double>[5, 5],
-                                          ),
-                                          // 트랙볼 설정
-                                          trackballBehavior: _trackballBehavior,
-                                          // 줌 팬 설정
-                                          zoomPanBehavior: ZoomPanBehavior(
-                                            enablePinching: true,
-                                            enablePanning: true,
-                                            zoomMode: ZoomMode.x,
-                                          ),
-                                          onActualRangeChanged: (args) {
-                                            // updateVolumeChartXAxis(args);
-                                          },
-                                          margin: const EdgeInsets.fromLTRB(
-                                              0, 10, 10, 10),
+                                    // series 데이터 설정
+                                    series: <CartesianSeries<StockData,
+                                        DateTime>>[
+                                      // 캔들 시리즈
+                                      CandleSeries<StockData, DateTime>(
+                                        dataSource: service.visibleStockData,
+                                        xValueMapper: (StockData data, _) =>
+                                            data.x,
+                                        openValueMapper: (StockData data, _) =>
+                                            data.open,
+                                        closeValueMapper: (StockData data, _) =>
+                                            data.close,
+                                        lowValueMapper: (StockData data, _) =>
+                                            data.low,
+                                        highValueMapper: (StockData data, _) =>
+                                            data.high,
+                                        enableSolidCandles: true,
+                                        emptyPointSettings:
+                                            const EmptyPointSettings(
+                                          mode: EmptyPointMode.gap,
                                         ),
+                                        bearColor: Colors.blue,
+                                        bullColor: Colors.red,
+                                        animationDelay: 0,
+                                        animationDuration: 500,
                                       ),
-                                      const Divider(
-                                        color: ColorTheme.Grey2,
-                                        thickness: 1,
-                                        height: 0,
-                                      ),
-                                      //* 거래량 데이터 차트
-                                      // SizedBox(
-                                      //   height: screenSize.height * 0.17,
-                                      //   child: SfCartesianChart(
-                                      //     key: volumeKey,
-                                      //     primaryXAxis: DateTimeCategoryAxis(
-                                      //       dateFormat:
-                                      //           CustomDateFormat('custom'),
-                                      //       interval: 3,
-                                      //       majorGridLines:
-                                      //           const MajorGridLines(width: 0),
-                                      //       edgeLabelPlacement:
-                                      //           EdgeLabelPlacement.shift,
-                                      //       initialVisibleMinimum: service
-                                      //           .visibleStockData.last.x
-                                      //           .subtract(
-                                      //               const Duration(days: 21)),
-                                      //       minimum: service
-                                      //           .visibleStockData.first.x,
-                                      //       maximum:
-                                      //           service.visibleStockData.last.x,
-                                      //     ),
-                                      //     primaryYAxis: NumericAxis(
-                                      //       opposedPosition: true,
-                                      //       maximumLabels: 2,
-                                      //       rangePadding:
-                                      //           ChartRangePadding.round,
-                                      //       axisLabelFormatter:
-                                      //           (axisLabelRenderArgs) {
-                                      //         int value = int.parse(
-                                      //             axisLabelRenderArgs.text);
-
-                                      //         String formattedValue;
-
-                                      //         // Y축 값에 따라 레이블 포맷 변경
-                                      //         if (value >= 10000000) {
-                                      //           formattedValue =
-                                      //               '${(value / 10000000).toStringAsFixed(0)}천만';
-                                      //         } else if (value >= 1000000) {
-                                      //           formattedValue =
-                                      //               '${(value / 1000000).toStringAsFixed(1)}백만';
-                                      //         } else if (value >= 100000) {
-                                      //           formattedValue =
-                                      //               '${(value / 100000).toStringAsFixed(1)}십만';
-                                      //         } else if (value >= 10000) {
-                                      //           formattedValue =
-                                      //               '${(value / 10000).toStringAsFixed(1)}만';
-                                      //         } else {
-                                      //           formattedValue =
-                                      //               axisLabelRenderArgs
-                                      //                   .text; // 기본 포맷
-                                      //         }
-
-                                      //         return ChartAxisLabel(
-                                      //           formattedValue,
-                                      //           const TextStyle(
-                                      //             fontSize: 11,
-                                      //             fontWeight: FontWeight.bold,
-                                      //           ),
-                                      //         );
-                                      //       },
-                                      //     ),
-                                      //     series: [
-                                      //       // 거래량 막대 시리즈
-                                      //       ColumnSeries<StockData, DateTime>(
-                                      //         dataSource:
-                                      //             service.visibleStockData,
-                                      //         xValueMapper:
-                                      //             (StockData data, _) => data.x,
-                                      //         yValueMapper:
-                                      //             (StockData data, _) =>
-                                      //                 data.volume,
-                                      //         animationDelay: 0,
-                                      //         animationDuration: 500,
-                                      //       ),
-                                      //     ],
-                                      //     // 트랙볼 설정
-                                      //     trackballBehavior:
-                                      //         TrackballBehavior(enable: true),
-                                      //     // 줌 팬 설정
-                                      //     zoomPanBehavior: ZoomPanBehavior(
-                                      //       enablePinching: true,
-                                      //       enablePanning: true,
-                                      //       zoomMode: ZoomMode.x,
-                                      //     ),
-                                      //     onActualRangeChanged:
-                                      //         (rangeChangedArgs) {
-                                      //       service.updateUnifiedActualArgs(
-                                      //           rangeChangedArgs);
-                                      //     },
-                                      //     margin: const EdgeInsets.fromLTRB(
-                                      //         0, 10, 10, 10),
-                                      //   ),
-                                      // ),
                                     ],
+                                    // 트랙볼 설정
+                                    trackballBehavior: TrackballBehavior(
+                                      enable: true,
+                                      shouldAlwaysShow: true,
+                                      activationMode: ActivationMode.singleTap,
+                                    ),
+                                    // 십자선 설정
+                                    crosshairBehavior: CrosshairBehavior(
+                                      enable: true,
+                                      activationMode: ActivationMode.longPress,
+                                      lineType: CrosshairLineType.both,
+                                      lineColor: Colors.grey,
+                                      lineWidth: 1,
+                                      lineDashArray: const <double>[5, 5],
+                                    ),
+                                    // 줌 팬 설정
+                                    zoomPanBehavior: ZoomPanBehavior(
+                                      enablePinching: true,
+                                      enablePanning: true,
+                                      zoomMode: ZoomMode.x,
+                                    ),
+                                    margin: const EdgeInsets.fromLTRB(
+                                        0, 10, 10, 10),
                                   ),
+                                ),
+                                const Divider(
+                                  color: ColorTheme.Grey2,
+                                  thickness: 1,
+                                  height: 0,
+                                ),
+                                //* 거래량 데이터 차트
+                                // SizedBox(
+                                //   height: screenSize.height * 0.17,
+                                //   child: SfCartesianChart(
+                                //     key: volumeKey,
+                                //     primaryXAxis: DateTimeCategoryAxis(
+                                //       dateFormat:
+                                //           CustomDateFormat('custom'),
+                                //       interval: 3,
+                                //       majorGridLines:
+                                //           const MajorGridLines(width: 0),
+                                //       edgeLabelPlacement:
+                                //           EdgeLabelPlacement.shift,
+                                //       initialVisibleMinimum: service
+                                //           .visibleStockData.last.x
+                                //           .subtract(
+                                //               const Duration(days: 21)),
+                                //       minimum: service
+                                //           .visibleStockData.first.x,
+                                //       maximum:
+                                //           service.visibleStockData.last.x,
+                                //     ),
+                                //     primaryYAxis: NumericAxis(
+                                //       opposedPosition: true,
+                                //       maximumLabels: 2,
+                                //       rangePadding:
+                                //           ChartRangePadding.round,
+                                //       axisLabelFormatter:
+                                //           (axisLabelRenderArgs) {
+                                //         int value = int.parse(
+                                //             axisLabelRenderArgs.text);
+
+                                //         String formattedValue;
+
+                                //         // Y축 값에 따라 레이블 포맷 변경
+                                //         if (value >= 10000000) {
+                                //           formattedValue =
+                                //               '${(value / 10000000).toStringAsFixed(0)}천만';
+                                //         } else if (value >= 1000000) {
+                                //           formattedValue =
+                                //               '${(value / 1000000).toStringAsFixed(1)}백만';
+                                //         } else if (value >= 100000) {
+                                //           formattedValue =
+                                //               '${(value / 100000).toStringAsFixed(1)}십만';
+                                //         } else if (value >= 10000) {
+                                //           formattedValue =
+                                //               '${(value / 10000).toStringAsFixed(1)}만';
+                                //         } else {
+                                //           formattedValue =
+                                //               axisLabelRenderArgs
+                                //                   .text; // 기본 포맷
+                                //         }
+
+                                //         return ChartAxisLabel(
+                                //           formattedValue,
+                                //           const TextStyle(
+                                //             fontSize: 11,
+                                //             fontWeight: FontWeight.bold,
+                                //           ),
+                                //         );
+                                //       },
+                                //     ),
+                                //     series: [
+                                //       // 거래량 막대 시리즈
+                                //       ColumnSeries<StockData, DateTime>(
+                                //         dataSource:
+                                //             service.visibleStockData,
+                                //         xValueMapper:
+                                //             (StockData data, _) => data.x,
+                                //         yValueMapper:
+                                //             (StockData data, _) =>
+                                //                 data.volume,
+                                //         animationDelay: 0,
+                                //         animationDuration: 500,
+                                //       ),
+                                //     ],
+                                //     // 트랙볼 설정
+                                //     trackballBehavior:
+                                //         TrackballBehavior(enable: true),
+                                //     // 줌 팬 설정
+                                //     zoomPanBehavior: ZoomPanBehavior(
+                                //       enablePinching: true,
+                                //       enablePanning: true,
+                                //       zoomMode: ZoomMode.x,
+                                //     ),
+                                //     onActualRangeChanged:
+                                //         (rangeChangedArgs) {
+                                //       service.updateUnifiedActualArgs(
+                                //           rangeChangedArgs);
+                                //     },
+                                //     margin: const EdgeInsets.fromLTRB(
+                                //         0, 10, 10, 10),
+                                //   ),
+                                // ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  SizedBox(height: screenSize.height * 0.05),
+                  SizedBox(height: screenSize.height * 0.02),
                   SizedBox(
                     height: screenSize.height,
                     child: Column(
@@ -705,6 +640,56 @@ class _StockOrderTabState extends State<StockOrderTab> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: -10,
+            left: screenSize.width * 0.25,
+            right: screenSize.width * 0.25,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Container(
+                width: screenSize.width / 2,
+                height: screenSize.height / 16,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 1,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(6.0),
+                        child: Image.asset(
+                          'assets/images/scenario/info_time.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ],
+                      ),
+                      const Opacity(
+                        opacity: 0,
+                        child: Icon(Icons.abc),
+                      )
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

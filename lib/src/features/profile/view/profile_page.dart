@@ -1,7 +1,6 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:motu/src/common/service/navigation_service.dart';
 import 'package:motu/src/features/login/service/auth_service.dart';
 import 'package:motu/src/features/profile/view/completed_quiz_page.dart';
 import 'package:motu/src/features/profile/view/completed_scenario_page.dart';
@@ -168,27 +167,35 @@ class ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 16),
 
-              FutureBuilder<List<DateTime>>(
-                future: context.watch<AuthService>().getAttendance(),
-                builder: (BuildContext context,
-                    AsyncSnapshot<List<DateTime>> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return const Center(
-                        child: Text('출석 현황을 불러오는 중 오류가 발생했습니다.'));
-                  }
+              Consumer<AuthService>(builder: (context, authService, child) {
+                return buildSectionCard(
+                  context,
+                  children:
+                      buildAttendanceWeek(context, authService.attendanceDates),
+                  backgroundColor: ColorTheme.colorNeutral,
+                );
+              }),
+              // FutureBuilder<List<DateTime>>(
+              //   future: context.watch<AuthService>().getAttendance(),
+              //   builder: (BuildContext context,
+              //       AsyncSnapshot<List<DateTime>> snapshot) {
+              //     if (snapshot.connectionState == ConnectionState.waiting) {
+              //       return const Center(child: CircularProgressIndicator());
+              //     }
+              //     if (snapshot.hasError) {
+              //       return const Center(
+              //           child: Text('출석 현황을 불러오는 중 오류가 발생했습니다.'));
+              //     }
 
-                  List<DateTime> attendance = snapshot.data ?? [];
+              //     List<DateTime> attendance = snapshot.data ?? [];
 
-                  return buildSectionCard(
-                    context,
-                    children: buildAttendanceWeek(context, attendance),
-                    backgroundColor: ColorTheme.colorNeutral,
-                  );
-                },
-              ),
+              //     return buildSectionCard(
+              //       context,
+              //       children: buildAttendanceWeek(context, attendance),
+              //       backgroundColor: ColorTheme.colorNeutral,
+              //     );
+              //   },
+              // ),
               const Divider(
                 height: 50,
                 color: ColorTheme.Grey2,

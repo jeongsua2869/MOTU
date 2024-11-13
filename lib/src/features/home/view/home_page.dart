@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:motu/src/features/learning/term/view/widget/terminology_category_card_builder.dart';
-import 'package:motu/src/features/profile/service/profile_service.dart';
 import 'package:provider/provider.dart';
 import '../../../common/service/navigation_service.dart';
 import '../../login/service/auth_service.dart';
@@ -202,10 +201,16 @@ class HomePageState extends State<HomePage> {
                                         width: screenWidth * 0.4,
                                         height: 32,
                                         child: ElevatedButton(
-                                          onPressed: () =>
-                                              Provider.of<AuthService>(context,
-                                                      listen: false)
-                                                  .checkAttendance(context),
+                                          onPressed: () async {
+                                            await Provider.of<AuthService>(
+                                                    context,
+                                                    listen: false)
+                                                .checkAttendance(context);
+                                            await Provider.of<AuthService>(
+                                                    context,
+                                                    listen: false)
+                                                .getAttendance();
+                                          },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
                                                 ColorTheme.colorPrimary,

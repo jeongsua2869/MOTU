@@ -6,14 +6,11 @@ class StockPortfolio {
   int totalRatingPrice; // 총 평가 금액
   int unrealizedPnL; // 평가 손익
   int realizedPnL; // 실현 손익
-  Map<String, List<int>> stocks = {
-    '관련주 A': [0, 0],
-    '관련주 B': [0, 0],
-    '관련주 C': [0, 0],
-    '관련주 D': [0, 0],
-    '관련주 E': [0, 0],
-  }; // [주식명: [보유량, 총 구매 금액]]
-  List<InvestRecord> investRecords = []; // 투자 기록
+  double returnRate = 0; // 수익률
+  double totalEarningRate = 0; // 전체 수익률
+  Map<String, List<int>> investStocks; // [주식명: [보유량, 매입단가 * 보유량]]
+  Map<String, double> earningRates; // [주식명: 수익률]
+  List<InvestRecord> investRecords; // 투자 기록
 
   StockPortfolio({
     required this.initialBalance,
@@ -21,17 +18,12 @@ class StockPortfolio {
     required this.totalRatingPrice,
     required this.unrealizedPnL,
     required this.realizedPnL,
-    Map<String, List<int>>? stocks,
-    List<InvestRecord>? investRecords,
-  })  : stocks = stocks ??
-            {
-              '관련주 A': [0, 0],
-              '관련주 B': [0, 0],
-              '관련주 C': [0, 0],
-              '관련주 D': [0, 0],
-              '관련주 E': [0, 0],
-            },
-        investRecords = investRecords ?? [];
+    required this.returnRate,
+    required this.totalEarningRate,
+    required this.investStocks,
+    required this.earningRates,
+    required this.investRecords,
+  });
 
   factory StockPortfolio.fromJson(Map<String, dynamic> json) {
     return StockPortfolio(
@@ -40,8 +32,20 @@ class StockPortfolio {
       totalRatingPrice: json['totalRatingPrice'],
       unrealizedPnL: json['unrealizedPnL'],
       realizedPnL: json['realizedPnL'],
-      stocks: json['stocks'],
-      investRecords: json['investRecords'],
+      returnRate: json['returnRate'],
+      totalEarningRate: json['totalEarningRate'],
+      investStocks: (json['investStocks'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(
+          key,
+          List<int>.from(value), // List<int>로 변환
+        ),
+      ),
+      earningRates: (json['earningRates'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, value.toDouble()), // double로 변환
+      ),
+      investRecords: (json['investRecords'] as List)
+          .map((item) => InvestRecord.fromJson(item))
+          .toList(), // InvestRecord 객체로 변환
     );
   }
 
@@ -52,8 +56,15 @@ class StockPortfolio {
       'totalRatingPrice': totalRatingPrice,
       'unrealizedPnL': unrealizedPnL,
       'realizedPnL': realizedPnL,
-      'stocks': stocks,
-      'investRecords': investRecords,
+      'returnRate': returnRate.isNaN ? 0.0 : returnRate, // NaN 체크,
+      'totalEarningRate':
+          totalEarningRate.isNaN ? 0.0 : totalEarningRate, // NaN 체크,
+      'investStocks': investStocks.map((key, value) => MapEntry(key, value)),
+      'earningRates': earningRates.map((key, value) {
+        // NaN 체크 후 기본값으로 대체
+        return MapEntry(key, value.isNaN ? 0.0 : value);
+      }),
+      'investRecords': investRecords.map((record) => record.toJson()).toList(),
     };
   }
 }

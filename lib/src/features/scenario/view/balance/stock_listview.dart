@@ -92,7 +92,7 @@ class StockListView extends StatelessWidget {
                                 service.visibleAllStockData[stock]!.last.close
                                     .toInt()),
                         rate:
-                            "${service.earningRates[stock].toStringAsFixed(1)}%",
+                            "${service.earningRates[stock]?.toStringAsFixed(1)}%",
                       );
                     case '관련주 B':
                       return StockItem(
@@ -104,7 +104,7 @@ class StockListView extends StatelessWidget {
                                 service.visibleAllStockData[stock]!.last.close
                                     .toInt()),
                         rate:
-                            "${service.earningRates[stock].toStringAsFixed(1)}%",
+                            "${service.earningRates[stock]?.toStringAsFixed(1)}%",
                       );
                     case '관련주 C':
                       return StockItem(
@@ -116,7 +116,7 @@ class StockListView extends StatelessWidget {
                                 service.visibleAllStockData[stock]!.last.close
                                     .toInt()),
                         rate:
-                            "${service.earningRates[stock].toStringAsFixed(1)}%",
+                            "${service.earningRates[stock]?.toStringAsFixed(1)}%",
                       );
                     case '관련주 D':
                       return StockItem(
@@ -128,7 +128,7 @@ class StockListView extends StatelessWidget {
                                 service.visibleAllStockData[stock]!.last.close
                                     .toInt()),
                         rate:
-                            "${service.earningRates[stock].toStringAsFixed(1)}%",
+                            "${service.earningRates[stock]?.toStringAsFixed(1)}%",
                       );
                     case '관련주 E':
                       return StockItem(
@@ -140,7 +140,7 @@ class StockListView extends StatelessWidget {
                                 service.visibleAllStockData[stock]!.last.close
                                     .toInt()),
                         rate:
-                            "${service.earningRates[stock].toStringAsFixed(1)}%",
+                            "${service.earningRates[stock]?.toStringAsFixed(1)}%",
                       );
                     default:
                       return const SizedBox.shrink(); // 기본적으로 빈 위젯 반환

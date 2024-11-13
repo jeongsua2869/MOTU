@@ -15,6 +15,30 @@ class StockFinancial {
     this.totalLiabilities = 0, // 기본값 0
   });
 
+  // JSON으로 변환
+  Map<String, dynamic> toJson() {
+    return {
+      'year': year,
+      'quarter': quarter,
+      'revenue': revenue,
+      'netIncome': netIncome,
+      'totalAssets': totalAssets,
+      'totalLiabilities': totalLiabilities,
+    };
+  }
+
+  // JSON에서 객체로 변환
+  factory StockFinancial.fromJson(Map<String, dynamic> json) {
+    return StockFinancial(
+      year: json['year'],
+      quarter: json['quarter'],
+      revenue: _toDouble(json['revenue']),
+      netIncome: _toDouble(json['netIncome']),
+      totalAssets: _toDouble(json['totalAssets']),
+      totalLiabilities: _toDouble(json['totalLiabilities']),
+    );
+  }
+
   factory StockFinancial.fromList(List<dynamic> data) {
     return StockFinancial(
       year: data[0] is int ? data[0] : int.parse(data[0].toString()),
@@ -24,6 +48,17 @@ class StockFinancial {
       totalAssets: _toDouble(data[4]),
       totalLiabilities: _toDouble(data[5]),
     );
+  }
+
+  List<dynamic> toList() {
+    return [
+      year,
+      quarter,
+      revenue,
+      netIncome,
+      totalAssets,
+      totalLiabilities,
+    ];
   }
 
   static double _toDouble(dynamic value) {

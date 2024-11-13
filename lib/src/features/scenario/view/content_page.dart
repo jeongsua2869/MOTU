@@ -12,16 +12,30 @@ import 'package:provider/provider.dart';
 
 import '../service/scenario_service.dart';
 
-class ContentPage extends StatelessWidget {
+class ContentPage extends StatefulWidget {
   final ScenarioService service;
 
   const ContentPage({super.key, required this.service});
 
   @override
+  State<ContentPage> createState() => _ContentPageState();
+}
+
+class _ContentPageState extends State<ContentPage> {
+  late AuthService _authService;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    _authService = Provider.of<AuthService>(context, listen: false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
 
-    service.onNavigate = () {
+    widget.service.onNavigate = () {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const TimeoverPage()),
@@ -29,13 +43,11 @@ class ContentPage extends StatelessWidget {
       );
     };
 
-    service.updateUserBalanceWhenFinish = () {
-      final authService = Provider.of<AuthService>(context, listen: false);
+    widget.service.updateUserBalanceWhenFinish = () {
+      int remainingStockPrice = widget.service.getRemainStockToBalance();
+      _authService.user?.balance += remainingStockPrice;
 
-      int remainingStockPrice = service.getRemainStockToBalance();
-      authService.user?.balance += remainingStockPrice;
-
-      int change = authService.user!.balance - service.originBalance;
+      int change = _authService.user!.balance - widget.service.originBalance;
       bool isIncome = change > 0;
       int amount = change.abs();
 
@@ -45,22 +57,23 @@ class ContentPage extends StatelessWidget {
         amount: amount,
         isIncome: isIncome,
       );
-      authService.addBalanceDetail(thisDetail);
+      _authService.addBalanceDetail(thisDetail);
 
       ScenarioResult result = ScenarioResult(
         date: DateTime.now(),
-        subject: service
-            .getScenarioTitle(service.selectedScenario ?? ScenarioType.disease),
+        subject:
+            widget.service.getScenarioTitle(widget.service.selectedScenario),
         isIncome: isIncome,
         totalReturn: amount,
-        returnRate: service.totalPurchasePrice == 0
+        returnRate: widget.service.totalPurchasePrice == 0
             ? "0.0"
-            : ((service.totalRatingPrice - service.totalPurchasePrice) /
-                    service.totalPurchasePrice *
+            : ((widget.service.totalRatingPrice -
+                        widget.service.totalPurchasePrice) /
+                    widget.service.totalPurchasePrice *
                     100)
                 .toStringAsFixed(1),
       );
-      authService.addScenarioRecord(result);
+      _authService.addScenarioRecord(result);
     };
 
     return SafeArea(
@@ -68,8 +81,7 @@ class ContentPage extends StatelessWidget {
         appBar: AppBar(
           toolbarHeight: 40,
           title: Text(
-            service.getScenarioTitle(
-                service.selectedScenario ?? ScenarioType.disease),
+            widget.service.getScenarioTitle(widget.service.selectedScenario),
             style: const TextStyle(fontSize: 18),
           ),
           leading: GestureDetector(
@@ -113,11 +125,11 @@ class ContentPage extends StatelessWidget {
                           children: [
                             const Text("뉴스",
                                 style: TextStyle(fontWeight: FontWeight.bold)),
-                            service.checkUnreadNews() != 0
+                            widget.service.checkUnreadNews() != 0
                                 ? const SizedBox(width: 6)
                                 : const SizedBox(),
                             // 동그란 원 안에 Text로 숫자를 표시할 수 있는 원을 만들어줘
-                            service.checkUnreadNews() != 0
+                            widget.service.checkUnreadNews() != 0
                                 ? Container(
                                     padding: const EdgeInsets.all(3),
                                     decoration: BoxDecoration(
@@ -125,7 +137,9 @@ class ContentPage extends StatelessWidget {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Text(
-                                      service.checkUnreadNews().toString(),
+                                      widget.service
+                                          .checkUnreadNews()
+                                          .toString(),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 8,

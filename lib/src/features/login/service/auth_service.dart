@@ -33,26 +33,27 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<User?> signInWithEmailAndPassword(
-      String email, String password) async {
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      User? user = userCredential.user;
-      notifyListeners();
-      return user;
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        dev.log('No user found for that email.');
-      } else if (e.code == 'wrong-password') {
-        dev.log('Wrong password provided for that user.');
-      }
-      notifyListeners();
-      return null;
-    }
+  bool _isPrivacyPolicyChecked = false;
+
+  void setPrivacyPolicyChecked() {
+    _isPrivacyPolicyChecked = !_isPrivacyPolicyChecked;
+    notifyListeners();
   }
+
+  bool get isPrivacyPolicyChecked => _isPrivacyPolicyChecked;
+
+  // bool checkBlank() {
+  //   if (emailController.text.isEmpty ||
+  //       passwordController.text.isEmpty ||
+  //       passwordConfirmController.text.isEmpty ||
+  //       nameController.text.isEmpty ||
+  //       !_isPrivacyPolicyChecked) {
+  //     notifyListeners();
+  //     return false;
+  //   }
+  //   notifyListeners();
+  //   return true;
+  // }
 
   Future<User?> registerWithEmailAndPassword(
       String email, String password, String name) async {
@@ -111,7 +112,6 @@ class AuthService with ChangeNotifier {
         await getUserInfo();
       } else {
         await addEmailUserInfo(_auth.currentUser!.displayName ?? "");
-        await getUserInfo();
         dev.log("유저 정보가 없으므로 추가합니다.");
       }
 
@@ -169,8 +169,8 @@ class AuthService with ChangeNotifier {
           dev.log("User info already exists.");
           await getUserInfo();
         } else {
-          await addUserInfo();
           dev.log("User info does not exist, adding user.");
+          await addUserInfo();
         }
 
         notifyListeners(); // Notify listeners after state change
@@ -268,6 +268,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      getUserInfo();
     }
   }
 
@@ -298,6 +300,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      await getUserInfo();
     }
   }
 
@@ -328,6 +332,8 @@ class AuthService with ChangeNotifier {
           .collection('user')
           .doc(_auth.currentUser!.uid)
           .set(currentUser.toMap());
+
+      await getUserInfo();
     }
 
     notifyListeners();
@@ -366,7 +372,9 @@ class AuthService with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<DateTime>> getAttendance() async {
+  List<DateTime> attendanceDates = [];
+
+  Future<void> getAttendance() async {
     User? user = _auth.currentUser;
     if (user != null) {
       DocumentSnapshot doc =
@@ -374,13 +382,16 @@ class AuthService with ChangeNotifier {
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         List<dynamic> attendanceList = data['attendance'] ?? [];
-        List<DateTime> attendanceDates = attendanceList
+        List<DateTime> result = attendanceList
             .map((timestamp) => (timestamp as Timestamp).toDate())
             .toList();
-        return attendanceDates;
+
+        dev.log(result.toString());
+        attendanceDates = result;
       }
     }
-    return [];
+
+    notifyListeners();
   }
 
   void setUserBalance(int amount) {
@@ -597,6 +608,8 @@ class AuthService with ChangeNotifier {
         );
       }
     }
+
+    notifyListeners();
   }
 
   Future<bool> loadAttendance() async {
