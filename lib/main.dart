@@ -212,6 +212,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
             if (snapshot.hasData) {
               authService.getUserInfo().then((value) {
                 log('🔓 사용자 정보 로드 완료');
+                authService.getAttendance();
                 FlutterNativeSplash.remove();
               });
               return const NavPage();

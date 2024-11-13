@@ -33,26 +33,27 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<User?> signInWithEmailAndPassword(
-      String email, String password) async {
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      User? user = userCredential.user;
-      notifyListeners();
-      return user;
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        dev.log('No user found for that email.');
-      } else if (e.code == 'wrong-password') {
-        dev.log('Wrong password provided for that user.');
-      }
-      notifyListeners();
-      return null;
-    }
+  bool _isPrivacyPolicyChecked = false;
+
+  void setPrivacyPolicyChecked() {
+    _isPrivacyPolicyChecked = !_isPrivacyPolicyChecked;
+    notifyListeners();
   }
+
+  bool get isPrivacyPolicyChecked => _isPrivacyPolicyChecked;
+
+  // bool checkBlank() {
+  //   if (emailController.text.isEmpty ||
+  //       passwordController.text.isEmpty ||
+  //       passwordConfirmController.text.isEmpty ||
+  //       nameController.text.isEmpty ||
+  //       !_isPrivacyPolicyChecked) {
+  //     notifyListeners();
+  //     return false;
+  //   }
+  //   notifyListeners();
+  //   return true;
+  // }
 
   Future<User?> registerWithEmailAndPassword(
       String email, String password, String name) async {
@@ -371,7 +372,9 @@ class AuthService with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<DateTime>> getAttendance() async {
+  List<DateTime> attendanceDates = [];
+
+  Future<void> getAttendance() async {
     User? user = _auth.currentUser;
     if (user != null) {
       DocumentSnapshot doc =
@@ -379,13 +382,16 @@ class AuthService with ChangeNotifier {
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         List<dynamic> attendanceList = data['attendance'] ?? [];
-        List<DateTime> attendanceDates = attendanceList
+        List<DateTime> result = attendanceList
             .map((timestamp) => (timestamp as Timestamp).toDate())
             .toList();
-        return attendanceDates;
+
+        dev.log(result.toString());
+        attendanceDates = result;
       }
     }
-    return [];
+
+    notifyListeners();
   }
 
   void setUserBalance(int amount) {
@@ -602,6 +608,8 @@ class AuthService with ChangeNotifier {
         );
       }
     }
+
+    notifyListeners();
   }
 
   Future<bool> loadAttendance() async {

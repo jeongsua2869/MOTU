@@ -9,18 +9,18 @@ class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
   @override
-  _AttendanceScreenState createState() => _AttendanceScreenState();
+  AttendanceScreenState createState() => AttendanceScreenState();
 }
 
-class _AttendanceScreenState extends State<AttendanceScreen> {
-  late Future<List<DateTime>> _attendanceFuture;
+class AttendanceScreenState extends State<AttendanceScreen> {
   DateTime _focusedDay = DateTime.now();
+  late AuthService _authService;
 
   @override
   void initState() {
     super.initState();
-    _attendanceFuture =
-        Provider.of<AuthService>(context, listen: false).getAttendance();
+    _authService = Provider.of<AuthService>(context, listen: false);
+    _authService.getAttendance();
   }
 
   void _selectDate(BuildContext context) {
@@ -66,21 +66,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<DateTime>>(
-        future: _attendanceFuture,
-        builder:
-            (BuildContext context, AsyncSnapshot<List<DateTime>> snapshot) {
+      body: FutureBuilder<void>(
+        future: _authService.getAttendance(),
+        builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
             return const Center(child: Text('출석 현황을 불러오는 중 오류가 발생했습니다.'));
           }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          if (_authService.attendanceDates.isEmpty) {
             return const Center(child: Text('출석 기록이 없습니다.'));
           }
 
-          List<DateTime> attendance = snapshot.data!;
+          List<DateTime> attendance = _authService.attendanceDates;
           return Padding(
             padding: const EdgeInsets.all(16.0),
             child: TableCalendar(

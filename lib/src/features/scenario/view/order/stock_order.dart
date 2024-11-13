@@ -140,51 +140,7 @@ class _StockOrderTabState extends State<StockOrderTab> {
             body: SingleChildScrollView(
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: Container(
-                      width: screenSize.width / 2,
-                      height: screenSize.height / 16,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black54,
-                            blurRadius: 1,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(6.0),
-                              child: Image.asset(
-                                'assets/images/scenario/info_time.png',
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
-                                  style: const TextStyle(fontSize: 18),
-                                ),
-                              ],
-                            ),
-                            const Opacity(
-                              opacity: 0,
-                              child: Icon(Icons.abc),
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  SizedBox(height: screenSize.height / 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: Container(
@@ -354,6 +310,12 @@ class _StockOrderTabState extends State<StockOrderTab> {
                                         animationDuration: 500,
                                       ),
                                     ],
+                                    // 트랙볼 설정
+                                    trackballBehavior: TrackballBehavior(
+                                      enable: true,
+                                      shouldAlwaysShow: true,
+                                      activationMode: ActivationMode.singleTap,
+                                    ),
                                     // 십자선 설정
                                     crosshairBehavior: CrosshairBehavior(
                                       enable: true,
@@ -363,17 +325,12 @@ class _StockOrderTabState extends State<StockOrderTab> {
                                       lineWidth: 1,
                                       lineDashArray: const <double>[5, 5],
                                     ),
-                                    // 트랙볼 설정
-                                    trackballBehavior: _trackballBehavior,
                                     // 줌 팬 설정
                                     zoomPanBehavior: ZoomPanBehavior(
                                       enablePinching: true,
                                       enablePanning: true,
                                       zoomMode: ZoomMode.x,
                                     ),
-                                    onActualRangeChanged: (args) {
-                                      // updateVolumeChartXAxis(args);
-                                    },
                                     margin: const EdgeInsets.fromLTRB(
                                         0, 10, 10, 10),
                                   ),
@@ -484,7 +441,7 @@ class _StockOrderTabState extends State<StockOrderTab> {
                       ),
                     ),
                   ),
-                  SizedBox(height: screenSize.height * 0.05),
+                  SizedBox(height: screenSize.height * 0.02),
                   SizedBox(
                     height: screenSize.height,
                     child: Column(
@@ -683,6 +640,56 @@ class _StockOrderTabState extends State<StockOrderTab> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: -10,
+            left: screenSize.width * 0.25,
+            right: screenSize.width * 0.25,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Container(
+                width: screenSize.width / 2,
+                height: screenSize.height / 16,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 1,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(6.0),
+                        child: Image.asset(
+                          'assets/images/scenario/info_time.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ],
+                      ),
+                      const Opacity(
+                        opacity: 0,
+                        child: Icon(Icons.abc),
+                      )
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
