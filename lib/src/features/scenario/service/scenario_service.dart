@@ -15,6 +15,8 @@ import 'package:motu/src/common/database.dart';
 import 'package:motu/src/common/util/isolate_helper.dart';
 import 'package:motu/src/common/util/util.dart';
 import 'package:http/http.dart' as http;
+import 'package:motu/src/features/scenario/view/widget/order/custom_date_format.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../model/stock_data.dart';
 import '../model/stock_news.dart';
@@ -91,7 +93,8 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   final Map<String, List<StockData>> visibleAllStockData = {};
 
   // 보여지고 있는 현재 주식 데이터
-  List<StockData> visibleStockData = [];
+  List<StockData> _visibleStockData = [];
+  List<StockData> get visibleStockData => _visibleStockData;
 
   // 글로벌 타이머 및 인덱스
   Timer? _globalTimer;
@@ -370,7 +373,12 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     }
   }
 
-  //* Initialize
+  // RangeController rangeController = RangeController(
+  //   start: DateTime.now(),
+  //   end: DateTime.now().add(const Duration(days: 30)),
+  // );
+
+  // MARK: 시나리오 시작
   Future<void> initializeData() async {
     dev.log("Data initialized");
 
@@ -381,6 +389,13 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
     // 관련주 설명 업데이트
     await getStockDescription();
+
+    // rangeController = RangeController(
+    //   start: visibleStockData.first.x,
+    //   end: visibleStockData.last.x.subtract(const Duration(days: 21)),
+    // );
+
+    // visibleMinimum = visibleStockData.last.x.subtract(const Duration(days: 21));
 
     // 데이터 업데이트 타이머 시작 (Back)
     startDataUpdate();
@@ -724,12 +739,30 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   void _updateVisibleStockData() {
     dev.log("$selectedStock 업데이트");
     if (visibleAllStockData.containsKey(selectedStock)) {
-      visibleStockData = visibleAllStockData[selectedStock]!;
+      _visibleStockData = visibleAllStockData[selectedStock]!;
 
       // 데이터가 비어있지 않은지 확인
       currentStockTime = visibleStockData.last.x;
+
+      stockDateTimeCategoryAxis = DateTimeCategoryAxis(
+        dateFormat: CustomDateFormat('custom'),
+        interval: 3,
+        majorGridLines: const MajorGridLines(width: 0),
+        edgeLabelPlacement: EdgeLabelPlacement.shift,
+        minimum: visibleStockData.first.x,
+        maximum: visibleStockData.last.x,
+      );
+      volumeDateTimeCategoryAxis = DateTimeCategoryAxis(
+        dateFormat: CustomDateFormat('custom'),
+        interval: 3,
+        isVisible: false,
+        majorGridLines: const MajorGridLines(width: 0),
+        edgeLabelPlacement: EdgeLabelPlacement.shift,
+        minimum: visibleStockData.first.x,
+        maximum: visibleStockData.last.x,
+      );
     } else {
-      visibleStockData = [];
+      _visibleStockData = [];
       dev.log('Warning: No data found for $selectedStock');
     }
 
@@ -792,6 +825,13 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     }
     return explainText;
   }
+
+  //* MARK: - SynchoronizedChart 관련
+
+  late DateTimeCategoryAxis stockDateTimeCategoryAxis;
+  late DateTimeCategoryAxis volumeDateTimeCategoryAxis;
+
+  int stockPriceLabelLength = 5;
 
   //*---------------------------------------------------------------------------
   //* MARK: - 관련주 당 주식 종목 정보
