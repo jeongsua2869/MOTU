@@ -41,6 +41,7 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   percent_indicator: ^4.0.1
   gif: ^2.3.0
+  async:
 
   # 상태관리
   provider: ^6.1.2

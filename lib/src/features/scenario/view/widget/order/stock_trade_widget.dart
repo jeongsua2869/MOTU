@@ -1,7 +1,6 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:motu/src/features/scenario/model/invest_record.dart';
 import 'package:motu/src/features/login/service/auth_service.dart';
 import 'package:motu/src/features/scenario/service/scenario_service.dart';
@@ -14,10 +13,12 @@ import 'package:toastification/toastification.dart';
 enum StockTradeType { buy, sell }
 
 class StockTradeWidget extends StatefulWidget {
+  final ScenarioService service;
   final StockTradeType tradeType;
 
   const StockTradeWidget({
     super.key,
+    required this.service,
     required this.tradeType,
   });
 
@@ -33,6 +34,16 @@ class StockTradeWidgetState extends State<StockTradeWidget> {
   void initState() {
     super.initState();
     _quantityController.text = _quantity.toString();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    // TODO: 나중에 다시 하겠습니다.
+    // Future.microtask(() {
+    //   widget.service.resumeTimers();
+    // });
+    super.dispose();
   }
 
   @override
@@ -345,11 +356,5 @@ class StockTradeWidgetState extends State<StockTradeWidget> {
         );
       });
     });
-  }
-
-  @override
-  void dispose() {
-    _quantityController.dispose();
-    super.dispose();
   }
 }
