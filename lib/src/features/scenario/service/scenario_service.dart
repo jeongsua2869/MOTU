@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:math';
 
+import 'package:async/async.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -15,6 +16,8 @@ import 'package:motu/src/common/database.dart';
 import 'package:motu/src/common/util/isolate_helper.dart';
 import 'package:motu/src/common/util/util.dart';
 import 'package:http/http.dart' as http;
+import 'package:motu/src/features/scenario/view/widget/order/custom_date_format.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../model/stock_data.dart';
 import '../model/stock_news.dart';
@@ -49,10 +52,22 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   // 현재 시나리오 진행 중 여부
   bool isRunning = false;
 
+  // 글로벌 타이머 및 인덱스
+  Timer? _globalTimer;
+  // 시작 인덱스 -> 거래일 기준 1년 뒤
+  int _globalIndex = 20;
+  int get globalIndex => _globalIndex;
+
   // 시나리오 남은 시간 타이머
   Timer? _remainingTimeTimer;
   Duration _remainingTime = Duration.zero;
   Duration get remainingTime => _remainingTime;
+
+  // 타이머 상태 추적을 위한 변수
+  bool _isTimerPaused = false;
+
+  Duration? _pausedRemainingTime;
+  int? _pausedGlobalIndex;
 
   // 시나리오 종료 시간
   late DateTime endTime;
@@ -65,9 +80,6 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
   // 관련주 드롭다운
   String selectedStock = '관련주 A';
-
-  // // 주식 변경 중 상태 BOOL
-  // bool isChangeStock = false;
 
   // 선택한 시나리오 타입
   late ScenarioType selectedScenario;
@@ -91,15 +103,8 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   final Map<String, List<StockData>> visibleAllStockData = {};
 
   // 보여지고 있는 현재 주식 데이터
-  List<StockData> visibleStockData = [];
-
-  // 글로벌 타이머 및 인덱스
-  Timer? _globalTimer;
-
-  // 시작 인덱스 -> 거래일 기준 1년 뒤
-  int _globalIndex = 20;
-  // int _globalIndex = 0;
-  int get globalIndex => _globalIndex;
+  List<StockData> _visibleStockData = [];
+  List<StockData> get visibleStockData => _visibleStockData;
 
   // 시나리오 초기 자금 저장
   int originBalance = 0;
@@ -172,9 +177,87 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   List<StockNews> get news => _news;
 
   //* MARK: - 시나리오 관련 함수
+  Duration actualElapsed = Duration.zero;
+
+  void pauseTimers() {
+    if (!_isTimerPaused) {
+      _isTimerPaused = true;
+
+      // remainingTimeTimer 정지
+      _remainingTimeTimer?.cancel();
+
+      // globalTimer 정지
+      _globalTimer?.cancel();
+
+      // 정확한 시점 저장
+      _pausedRemainingTime = _remainingTime;
+      _pausedGlobalIndex = _globalIndex;
+
+      actualElapsed = _timerStartTime.difference(_lastTickTime);
+
+      if (actualElapsed.inMilliseconds > 4000) {
+        actualElapsed =
+            Duration(milliseconds: actualElapsed.inMilliseconds % 4000);
+      }
+      if (actualElapsed.inMilliseconds < 0) {
+        actualElapsed =
+            Duration(milliseconds: actualElapsed.inMilliseconds * -1);
+      }
+
+      dev.log("${actualElapsed.inMilliseconds}ms");
+
+      notifyListeners();
+    }
+  }
+
+  Future<void> resumeTimers() async {
+    if (_isTimerPaused) {
+      _isTimerPaused = false;
+
+      _globalIndex = _pausedGlobalIndex!;
+
+      // remainingTimeTimer 재개
+      startRemainingTimeTimer(isResume: true);
+
+      // globalTimer 재개
+      // CancelableOperation으로 래핑
+      await Future.delayed(
+        Duration(milliseconds: actualElapsed.inMilliseconds),
+        () {
+          // 여기에 실행하고 싶은 특정 함수 호출
+          _updateAllVisibleData();
+
+          // 현재 주식 종목 정보 업데이트
+          updateCurrentStockInfo();
+
+          // 현재 보유한 주식의 총 투자 금액 업데이트
+          updateTotalRatingPrice();
+
+          // 현재 보유한 주식의 총 평가 금액 업데이트
+          updateUnrealizedPnL();
+
+          // 현재 보유한 주식들의 각각 수익률 업데이트
+          setStockEarningRates();
+
+          // 현재 보유한 주식의 총 수익률 업데이트
+          setTotalEarningRate();
+
+          // 현재 주식 종목 정보 업데이트
+          checkFinancialInfoUpdate();
+
+          // 뉴스 데이터 업데이트
+          checkNewsUpdate();
+        },
+      );
+
+      startDataUpdate();
+
+      notifyListeners();
+    }
+  }
 
   // 시나리오 시작할 때 남은시간 타이머 시작
-  void startRemainingTimeTimer() {
+  void startRemainingTimeTimer({bool isResume = false}) {
     // back
     dev.log("⏱️ 시나리오 남은 시간 타이머 시작");
 
@@ -185,7 +268,13 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
         ((storedAllStockData[selectedStock]!.length - 1 - _globalIndex) *
                 millisecondsPeriod)
             .toInt();
-    _remainingTime = Duration(milliseconds: totalMilliseconds);
+
+    if (isResume) {
+      // 일시정지된 시간만큼 빼기
+      _remainingTime = _pausedRemainingTime!;
+    } else {
+      _remainingTime = Duration(milliseconds: totalMilliseconds);
+    }
 
     // 0.1초마다 남은 시간을 감소시키는 타이머
     _remainingTimeTimer =
@@ -226,11 +315,20 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     return endDateTime;
   }
 
+  DateTime _timerStartTime = DateTime.now(); // 타이머 시작 시간
+  DateTime _lastTickTime = DateTime.now(); // 마지막 틱 시간
+
   // 시나리오 시간 흘러가도록 처리
   void startDataUpdate() {
+    _timerStartTime = DateTime.now();
+
     // back
     _globalTimer =
         Timer.periodic(Duration(milliseconds: millisecondsPeriod), (timer) {
+      // 현재 틱 시간 저장
+      _lastTickTime = DateTime.now();
+      print("${_lastTickTime.difference(_timerStartTime).inMilliseconds}ms");
+
       _updateAllVisibleData();
 
       // 현재 주식 종목 정보 업데이트
@@ -253,7 +351,10 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
       // 뉴스 데이터 업데이트
       checkNewsUpdate();
+
+      notifyListeners();
     });
+    notifyListeners();
   }
 
   void checkFinancialInfoUpdate() {
@@ -370,7 +471,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     }
   }
 
-  //* Initialize
+  // MARK: 시나리오 시작
   Future<void> initializeData() async {
     dev.log("Data initialized");
 
@@ -724,12 +825,30 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
   void _updateVisibleStockData() {
     dev.log("$selectedStock 업데이트");
     if (visibleAllStockData.containsKey(selectedStock)) {
-      visibleStockData = visibleAllStockData[selectedStock]!;
+      _visibleStockData = visibleAllStockData[selectedStock]!;
 
       // 데이터가 비어있지 않은지 확인
       currentStockTime = visibleStockData.last.x;
+
+      stockDateTimeCategoryAxis = DateTimeCategoryAxis(
+        dateFormat: CustomDateFormat('custom'),
+        interval: 3,
+        majorGridLines: const MajorGridLines(width: 0),
+        edgeLabelPlacement: EdgeLabelPlacement.shift,
+        minimum: visibleStockData.first.x,
+        maximum: visibleStockData.last.x,
+      );
+      volumeDateTimeCategoryAxis = DateTimeCategoryAxis(
+        dateFormat: CustomDateFormat('custom'),
+        interval: 3,
+        isVisible: false,
+        majorGridLines: const MajorGridLines(width: 0),
+        edgeLabelPlacement: EdgeLabelPlacement.shift,
+        minimum: visibleStockData.first.x,
+        maximum: visibleStockData.last.x,
+      );
     } else {
-      visibleStockData = [];
+      _visibleStockData = [];
       dev.log('Warning: No data found for $selectedStock');
     }
 
@@ -792,6 +911,13 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
     }
     return explainText;
   }
+
+  //* MARK: - SynchoronizedChart 관련
+
+  late DateTimeCategoryAxis stockDateTimeCategoryAxis;
+  late DateTimeCategoryAxis volumeDateTimeCategoryAxis;
+
+  int stockPriceLabelLength = 5;
 
   //*---------------------------------------------------------------------------
   //* MARK: - 관련주 당 주식 종목 정보

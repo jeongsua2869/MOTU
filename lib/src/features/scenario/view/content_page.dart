@@ -76,55 +76,114 @@ class _ContentPageState extends State<ContentPage> {
       _authService.addScenarioRecord(result);
     };
 
-    return SafeArea(
-      child: Scaffold(
-        appBar: AppBar(
-          toolbarHeight: 40,
-          title: Text(
-            widget.service.getScenarioTitle(widget.service.selectedScenario),
-            style: const TextStyle(fontSize: 18),
-          ),
-          leading: GestureDetector(
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) {
-                  return CommonDialog(context);
-                },
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.all(10), // 패딩 조절
-              child: Image.asset(
-                "assets/images/scenario/exit.png",
-                fit: BoxFit.contain, // 이미지가 컨테이너에 맞게 조절됨
+    int hours = widget.service.remainingTime.inHours;
+    int minutes = (widget.service.remainingTime.inMinutes % 60);
+    int seconds = (widget.service.remainingTime.inSeconds % 60);
+
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 80,
+        title: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Container(
+            width: size.width / 1.9,
+            height: size.height / 18,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 1,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Image.asset(
+                      'assets/images/scenario/info_time.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
+                        style: const TextStyle(
+                            fontSize: 20, color: ColorTheme.Purple1),
+                      ),
+                    ],
+                  ),
+                  Opacity(
+                    opacity: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.asset(
+                        'assets/images/scenario/info_time.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  )
+                ],
               ),
             ),
           ),
-          backgroundColor: Colors.white,
         ),
-        body: DefaultTabController(
-          length: 3,
-          child: Scaffold(
-            body: Column(
-              children: [
-                TabBar(
+        leading: GestureDetector(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return CommonDialog(context);
+              },
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), // 패딩 조절
+            child: Image.asset(
+              "assets/images/scenario/exit.png",
+              fit: BoxFit.contain, // 이미지가 컨테이너에 맞게 조절됨
+            ),
+          ),
+        ),
+        backgroundColor: ColorTheme.Purple5,
+      ),
+      body: DefaultTabController(
+        length: 3,
+        child: Scaffold(
+          body: Column(
+            children: [
+              Container(
+                color: ColorTheme.Grey1,
+                child: TabBar(
                   tabs: [
                     SizedBox(
-                      width: size.width * 0.13,
+                      width: size.width * 0.15,
                       child: const Tab(
                           child: Text("주문",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ))),
                     ),
                     SizedBox(
-                      width: size.width * 0.13,
+                      width: size.width * 0.15,
                       child: Tab(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             const Text("뉴스",
-                                style: TextStyle(fontWeight: FontWeight.bold)),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                )),
                             widget.service.checkUnreadNews() != 0
                                 ? const SizedBox(width: 6)
                                 : const SizedBox(),
@@ -153,31 +212,35 @@ class _ContentPageState extends State<ContentPage> {
                       ),
                     ),
                     SizedBox(
-                      width: size.width * 0.13,
+                      width: size.width * 0.15,
                       child: const Tab(
-                          child: Text("현황",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
+                          child: Text("잔고",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ))),
                     ),
                   ],
                   indicatorColor: ColorTheme.Purple1,
                   indicatorSize: TabBarIndicatorSize.tab,
-                  indicatorWeight: 5,
+                  indicatorWeight: 3,
+                  dividerColor: Colors.transparent,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
                   padding: const EdgeInsets.only(left: 10),
                 ),
-                const Expanded(
-                  child: TabBarView(
-                    physics: NeverScrollableScrollPhysics(),
-                    children: [
-                      StockOrderTab(),
-                      StockNewsTab(),
-                      StockBalanceTab(),
-                    ],
-                  ),
+              ),
+              const Expanded(
+                child: TabBarView(
+                  physics: NeverScrollableScrollPhysics(),
+                  children: [
+                    StockOrderTab(),
+                    StockNewsTab(),
+                    StockBalanceTab(),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
