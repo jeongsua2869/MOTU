@@ -174,8 +174,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         bool isScenarioRunning = getScenarioIsRunning();
         if (isScenarioRunning) {
           setScenarioStatusData(scenarioService);
-
-          print(getScenarioStatusData().portfolio.toJson().toString());
+          log(getScenarioStatusData().portfolio.toJson().toString());
         }
         break;
       case AppLifecycleState.detached:
@@ -198,6 +197,11 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           primaryColor: ColorTheme.Purple1,
           appBarTheme: const AppBarTheme(
             backgroundColor: ColorTheme.White,
+            titleTextStyle: TextStyle(
+              fontSize: 20,
+              color: ColorTheme.Black1,
+              fontWeight: FontWeight.bold,
+            ),
             scrolledUnderElevation: 0,
           ),
           scaffoldBackgroundColor: ColorTheme.White,
