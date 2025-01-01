@@ -13,9 +13,7 @@ import 'package:provider/provider.dart';
 import '../service/scenario_service.dart';
 
 class ContentPage extends StatefulWidget {
-  final ScenarioService service;
-
-  const ContentPage({super.key, required this.service});
+  const ContentPage({super.key});
 
   @override
   State<ContentPage> createState() => _ContentPageState();
@@ -34,8 +32,9 @@ class _ContentPageState extends State<ContentPage> {
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
+    ScenarioService service = context.watch<ScenarioService>();
 
-    widget.service.onNavigate = () {
+    service.onNavigate = () {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const TimeoverPage()),
@@ -43,11 +42,11 @@ class _ContentPageState extends State<ContentPage> {
       );
     };
 
-    widget.service.updateUserBalanceWhenFinish = () {
-      int remainingStockPrice = widget.service.getRemainStockToBalance();
+    service.updateUserBalanceWhenFinish = () {
+      int remainingStockPrice = service.getRemainStockToBalance();
       _authService.user?.balance += remainingStockPrice;
 
-      int change = _authService.user!.balance - widget.service.originBalance;
+      int change = _authService.user!.balance - service.originBalance;
       bool isIncome = change > 0;
       int amount = change.abs();
 
@@ -61,24 +60,22 @@ class _ContentPageState extends State<ContentPage> {
 
       ScenarioResult result = ScenarioResult(
         date: DateTime.now(),
-        subject:
-            widget.service.getScenarioTitle(widget.service.selectedScenario),
+        subject: service.getScenarioTitle(service.selectedScenario),
         isIncome: isIncome,
         totalReturn: amount,
-        returnRate: widget.service.totalPurchasePrice == 0
+        returnRate: service.totalPurchasePrice == 0
             ? "0.0"
-            : ((widget.service.totalRatingPrice -
-                        widget.service.totalPurchasePrice) /
-                    widget.service.totalPurchasePrice *
+            : ((service.totalRatingPrice - service.totalPurchasePrice) /
+                    service.totalPurchasePrice *
                     100)
                 .toStringAsFixed(1),
       );
       _authService.addScenarioRecord(result);
     };
 
-    int hours = widget.service.remainingTime.inHours;
-    int minutes = (widget.service.remainingTime.inMinutes % 60);
-    int seconds = (widget.service.remainingTime.inSeconds % 60);
+    int hours = service.remainingTime.inHours;
+    int minutes = (service.remainingTime.inMinutes % 60);
+    int seconds = (service.remainingTime.inSeconds % 60);
 
     return Scaffold(
       appBar: AppBar(
@@ -184,11 +181,11 @@ class _ContentPageState extends State<ContentPage> {
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 )),
-                            widget.service.checkUnreadNews() != 0
+                            service.checkUnreadNews() != 0
                                 ? const SizedBox(width: 6)
                                 : const SizedBox(),
                             // 동그란 원 안에 Text로 숫자를 표시할 수 있는 원을 만들어줘
-                            widget.service.checkUnreadNews() != 0
+                            service.checkUnreadNews() != 0
                                 ? Container(
                                     padding: const EdgeInsets.all(3),
                                     decoration: BoxDecoration(
@@ -196,9 +193,7 @@ class _ContentPageState extends State<ContentPage> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Text(
-                                      widget.service
-                                          .checkUnreadNews()
-                                          .toString(),
+                                      service.checkUnreadNews().toString(),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 8,
