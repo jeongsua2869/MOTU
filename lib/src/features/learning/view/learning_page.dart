@@ -18,7 +18,6 @@ class LearningPage extends StatelessWidget {
   Widget build(BuildContext context) {
     FirebaseAuth auth = FirebaseAuth.instance;
     final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
 
     return SafeArea(
       child: Scaffold(
@@ -29,7 +28,7 @@ class LearningPage extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 20,
-              vertical: 24,
+              vertical: 0,
             ),
             child: Column(
               children: [
@@ -74,44 +73,65 @@ class LearningPage extends StatelessWidget {
                 // Grid Section
                 GridView.count(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 20,
-                  childAspectRatio: 8 / 9,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
                   shrinkWrap: true,
+                  childAspectRatio: 169 / 225,
+                  padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    LearingCardBuilder(
-                      context,
-                      '용어\n공부하기',
-                      ColorTheme.colorWhite,
-                      const TermMainPage(),
-                      'assets/images/character/curious_panda.png',
-                      imageHeight: 76,
+                    Image.asset(
+                      'assets/images/learning/method1.png',
+                      width: screenWidth,
+                      fit: BoxFit.contain,
                     ),
-                    LearingCardBuilder(
-                      context,
-                      '퀴즈 풀며\n내 실력\n확인해보기',
-                      ColorTheme.colorWhite,
-                      QuizSelectionScreen(uid: auth.currentUser!.uid),
-                      'assets/images/character/study_panda.png',
-                      imageHeight: 76,
+                    // LearingCardBuilder(
+                    //   context,
+                    //   '용어\n공부하기',
+                    //   ColorTheme.colorWhite,
+                    //   const TermMainPage(),
+                    //   'assets/images/character/curious_panda.png',
+                    //   imageHeight: 76,
+                    // ),
+                    Image.asset(
+                      'assets/images/learning/method2.png',
+                      width: screenWidth,
+                      fit: BoxFit.contain,
                     ),
-                    LearingCardBuilder(
-                      context,
-                      '꼭 필요한\n경제꿀팁 읽으며\n경제지식 쌓기',
-                      ColorTheme.colorWhite,
-                      ArticleListScreen(),
-                      'assets/images/character/news_panda.png',
-                      imageHeight: 76,
+                    // LearingCardBuilder(
+                    //   context,
+                    //   '퀴즈 풀며\n내 실력\n확인해보기',
+                    //   ColorTheme.colorWhite,
+                    //   QuizSelectionScreen(uid: auth.currentUser!.uid),
+                    //   'assets/images/character/study_panda.png',
+                    //   imageHeight: 76,
+                    // ),
+                    Image.asset(
+                      'assets/images/learning/method3.png',
+                      width: screenWidth,
+                      fit: BoxFit.contain,
                     ),
-                    LearingCardBuilder(
-                      context,
-                      '오늘의\n시사 정보\n확인하기',
-                      ColorTheme.colorWhite,
-                      const NewsListPage(),
-                      'assets/images/character/teaching_panda.png',
-                      imageHeight: 76,
+                    // LearingCardBuilder(
+                    //   context,
+                    //   '꼭 필요한\n경제꿀팁 읽으며\n경제지식 쌓기',
+                    //   ColorTheme.colorWhite,
+                    //   ArticleListScreen(),
+                    //   'assets/images/character/news_panda.png',
+                    //   imageHeight: 76,
+                    // ),
+                    Image.asset(
+                      'assets/images/learning/method4.png',
+                      width: screenWidth,
+                      fit: BoxFit.contain,
                     ),
+                    // LearingCardBuilder(
+                    //   context,
+                    //   '오늘의\n시사 정보\n확인하기',
+                    //   ColorTheme.colorWhite,
+                    //   const NewsListPage(),
+                    //   'assets/images/character/teaching_panda.png',
+                    //   imageHeight: 76,
+                    // ),
                   ],
                 ),
               ],

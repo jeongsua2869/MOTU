@@ -45,6 +45,11 @@ Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
   // Hive 로컬DB 초기화
   final dir = await getApplicationDocumentsDirectory();
   Hive.defaultDirectory = dir.path;
