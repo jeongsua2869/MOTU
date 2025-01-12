@@ -4,7 +4,7 @@ description: "MOTU는 사용자들이 실전 투자에 대비할 수 있도록 �
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
-version: 0.2.2+1
+version: 1.5.0+1
 
 environment:
   sdk: ">=3.4.3 <4.0.0"
@@ -117,7 +117,9 @@ flutter:
     - assets/images/character/
     - assets/images/icon/
     - assets/images/learning/
+    - assets/images/learning/term_card/
     - assets/images/learning/course/
+    - assets/images/learning/course/character/
     - assets/images/learning/course/title/
     - assets/images/learning/course/background/
     - assets/images/gif/

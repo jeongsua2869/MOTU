@@ -113,10 +113,9 @@ class TermMainPage extends StatelessWidget {
                 List<Widget> incompleteCategories = [];
 
                 return FutureBuilder<List<bool>>(
-                  future: Future.wait(documents
-                      .map((doc) =>
-                          checkCompletionStatus(service.user!.uid, doc.id))
-                      .toList()),
+                  future: Future.wait(documents.map((doc) {
+                    return checkCompletionStatus(service.user!.uid, doc.id);
+                  }).toList()),
                   builder: (context, completionSnapshots) {
                     if (completionSnapshots.connectionState ==
                         ConnectionState.waiting) {
@@ -155,7 +154,6 @@ class TermMainPage extends StatelessWidget {
                         TermCard(
                           title: data['title'],
                           documentName: doc.id,
-                          uid: service.user!.uid,
                         ),
                         isCompleted,
                       );

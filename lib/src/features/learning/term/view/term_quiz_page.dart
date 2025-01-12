@@ -10,20 +10,21 @@ import 'term_quiz_completed_screen.dart';
 class TermQuizPage extends StatelessWidget {
   final String collectionName;
   final String documentName;
-  final String uid;
 
   const TermQuizPage({
     super.key,
     required this.collectionName,
     required this.documentName,
-    required this.uid,
   });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) =>
-          TermQuizService()..loadQuestions(collectionName, documentName, uid),
+      create: (context) => TermQuizService()
+        ..loadQuestions(
+          collectionName,
+          documentName,
+        ),
       child: Consumer<TermQuizService>(
         builder: (context, quizState, child) {
           if (quizState.isLoading) {
@@ -46,7 +47,6 @@ class TermQuizPage extends StatelessWidget {
               score: quizState.score,
               totalQuestions: quizState.questions.length,
               incorrectAnswers: quizState.incorrectAnswers,
-              uid: uid,
             );
           }
 

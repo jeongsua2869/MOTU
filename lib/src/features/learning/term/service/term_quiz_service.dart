@@ -1,10 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:motu/src/features/login/service/auth_service.dart';
 import 'dart:math';
-import 'dart:developer' as dev;
 
 class TermQuizService with ChangeNotifier {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   int _currentQuestionIndex = 0;
   int _score = 0;
@@ -28,9 +29,9 @@ class TermQuizService with ChangeNotifier {
   List<Map<String, dynamic>> get incorrectAnswers => _incorrectAnswers;
   TextEditingController get answerController => _answerController;
 
-  Future<void> loadQuestions(
-      String collectionName, String documentName, String uid) async {
-    _uid = uid;
+  Future<void> loadQuestions(String collectionName, String documentName) async {
+    _uid = _auth.currentUser!.uid;
+
     _documentName = documentName;
     try {
       final doc =

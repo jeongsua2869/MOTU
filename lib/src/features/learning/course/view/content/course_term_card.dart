@@ -1,33 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:motu/src/common/view/widget/linear_indicator.dart';
+import 'package:motu/src/design/color_theme.dart';
+import 'package:motu/src/features/learning/course/model/status.dart';
+import 'package:motu/src/features/learning/course/service/course_service.dart';
+import 'package:motu/src/features/learning/course/view/content/course_term_completion_widget.dart';
+import 'package:motu/src/features/learning/course/view/course_selection_page.dart';
+import 'package:motu/src/features/learning/term/service/term_card_service.dart';
+import 'package:motu/src/features/learning/term/view/bookmark_page.dart';
+import 'package:motu/src/features/learning/term/view/widget/term_card_builder.dart';
+import 'package:motu/src/features/learning/term/view/widget/term_card_completion_builder.dart';
 import 'package:provider/provider.dart';
-import '../service/term_card_service.dart';
-import '../../../../common/view/widget/linear_indicator.dart';
-import '../../../../design/color_theme.dart';
-import 'widget/term_card_builder.dart';
-import 'widget/term_card_completion_builder.dart';
-import 'bookmark_page.dart';
 
-class TermCard extends StatelessWidget {
-  final String title;
-  final String documentName;
+class CourseTermCard extends StatelessWidget {
+  final int index;
+  final CourseService courseService;
 
-  const TermCard({
+  const CourseTermCard({
     super.key,
-    required this.title,
-    required this.documentName,
+    required this.index,
+    required this.courseService,
   });
 
   @override
   Widget build(BuildContext context) {
+    Status status = courseService.stageStatusList[index - 1];
+
     return ChangeNotifierProvider(
       create: (_) => TermCardService()
-        ..fetchWords(title)
+        ..courseFetchWords(courseService.docLevel, index.toString())
         ..fetchBookmarkedWords(),
       child: Scaffold(
         backgroundColor: ColorTheme.colorNeutral,
         appBar: AppBar(
           backgroundColor: ColorTheme.colorWhite,
-          title: Text(title),
+          title: Text("${status.stage}. ${status.title}"),
           automaticallyImplyLeading: true,
           actions: [
             Consumer<TermCardService>(
@@ -88,7 +94,8 @@ class TermCard extends StatelessWidget {
                       onPageChanged: wordsProvider.setCurrentPage,
                       itemBuilder: (context, index) {
                         if (index == wordsProvider.words.length) {
-                          return TermCardCompletionBuilder(context);
+                          return CourseTermCompletionWidget(
+                              context, courseService, index);
                         } else {
                           final word = wordsProvider.words[index];
                           final isBookmarked = wordsProvider.bookmarkedWords

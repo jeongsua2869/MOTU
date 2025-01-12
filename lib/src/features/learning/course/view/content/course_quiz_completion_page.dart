@@ -1,27 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:motu/src/features/learning/term/view/term_incorrect_answers_page.dart';
-import 'package:motu/src/features/learning/term/view/term_main_page.dart';
 import 'package:motu/src/design/color_theme.dart';
+import 'package:motu/src/features/learning/course/service/course_service.dart';
+import 'package:motu/src/features/learning/course/view/content/course_quiz_page.dart';
+import 'package:motu/src/features/learning/course/view/course_detail_page.dart';
+import 'package:motu/src/features/learning/quiz/view/incorrect_answers_screen.dart';
+import 'package:motu/src/features/learning/quiz/view/widget/widget/circle_indicator.dart';
+import 'package:provider/provider.dart';
 import 'package:speech_balloon/speech_balloon.dart';
-import '../../quiz/view/widget/widget/circle_indicator.dart';
 
-class TermQuizCompletedScreen extends StatelessWidget {
+class CourseQuizCompletionPage extends StatelessWidget {
   final int score;
   final int totalQuestions;
   final List<Map<String, dynamic>> incorrectAnswers;
+  final int index;
+  final CourseService service;
 
-  const TermQuizCompletedScreen({
+  const CourseQuizCompletionPage({
     super.key,
     required this.score,
     required this.totalQuestions,
     required this.incorrectAnswers,
+    required this.index,
+    required this.service,
   });
 
-  String getFeedbackMessage() {
-    double percentage = (score / totalQuestions) * 100;
-
+  String getFeedbackMessage(double percentage) {
     if (percentage < 50) {
-      return '공부를 다시 해봐야겠어요';
+      return '더 공부가 필요해요!';
     } else if (percentage >= 50 && percentage < 90) {
       return '잘했어요!\n조금만 더 공부하면 되겠는걸요?';
     } else if (percentage >= 90 && percentage < 100) {
@@ -46,13 +51,14 @@ class TermQuizCompletedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isCompleted = score >= totalQuestions * 0.9;
+    double percentage = (score / totalQuestions) * 100;
 
     return Scaffold(
       backgroundColor: ColorTheme.colorWhite,
       appBar: AppBar(
         backgroundColor: ColorTheme.colorWhite,
         title: const Text(
-          '용어 테스트',
+          '퀴즈 완료',
           style: TextStyle(color: Colors.black),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
@@ -108,7 +114,7 @@ class TermQuizCompletedScreen extends StatelessWidget {
                           borderRadius: 10,
                           child: Center(
                             child: Text(
-                              getFeedbackMessage(),
+                              getFeedbackMessage(percentage),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: ColorTheme.colorWhite,
@@ -139,27 +145,35 @@ class TermQuizCompletedScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                onPressed: () {
-                  if (incorrectAnswers.isEmpty) {
+                onPressed: () async {
+                  if (percentage < 90) {
+                    // 다시 시도
                     Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TermMainPage(),
-                      ),
-                    );
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CourseQuizPage(
+                            index: index,
+                            service: service,
+                          ),
+                        ));
                   } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => TermIncorrectAnswersPage(
-                          termIncorrectAnswers: incorrectAnswers,
-                        ),
-                      ),
-                    ).then((_) => Navigator.pop(context));
+                    // 학습 종료
+                    await service.updateUserCourseCompletion(index);
+
+                    Navigator.pop(context);
+
+                    // 새로운 페이지로 푸쉬합니다.
+                    Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChangeNotifierProvider.value(
+                            value: service,
+                            child: CourseDetailPage(level: service.level),
+                          ),
+                        ));
                   }
                 },
-                child: Text(
-                    incorrectAnswers.isEmpty ? '다른 용어 배우러 가기' : '틀린 문제 보러가기'),
+                child: Text(percentage < 90 ? '다시 시도하기' : '학습 종료'),
               ),
             ),
             const SizedBox(height: 20),
@@ -180,15 +194,17 @@ class TermQuizCompletedScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.pushAndRemoveUntil(
+                    debugPrint('복습');
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TermMainPage(),
+                        builder: (context) => IncorrectAnswersScreen(
+                          incorrectAnswers: incorrectAnswers,
+                        ),
                       ),
-                      (route) => false, // 모든 기존 경로를 제거
                     );
                   },
-                  child: const Text('종료하기'),
+                  child: const Text('틀린 문제 복습하기'),
                 ),
               ),
           ],

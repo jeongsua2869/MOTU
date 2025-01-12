@@ -61,6 +61,43 @@ class TermCardService with ChangeNotifier {
     }
   }
 
+  Future<void> courseFetchWords(String docLevel, String index) async {
+    if (isDisposed) return;
+
+    CollectionReference collection = FirebaseFirestore.instance
+        .collection('course')
+        .doc(docLevel)
+        .collection(index);
+    DocumentSnapshot snapshot = await collection.doc("content").get();
+    if (snapshot.exists) {
+      Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+      print("data: $data");
+
+      List<Map<String, String>> fetchedWords = [];
+
+      if (data.containsKey('word')) {
+        data['word'].forEach((key, value) {
+          fetchedWords.add({
+            'term': key ?? '',
+            'definition': value['meaning'] ?? '',
+            'example': value['example'] ?? '',
+            'category': data['title'],
+          });
+        });
+      }
+
+      words = fetchedWords;
+      if (!isDisposed) {
+        notifyListeners();
+      }
+    } else {
+      words = [];
+      if (!isDisposed) {
+        notifyListeners();
+      }
+    }
+  }
+
   void nextPage() {
     if (isDisposed) return;
 

@@ -1,25 +1,29 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:motu/src/common/service/text_utils.dart';
+import 'package:motu/src/common/view/widget/linear_indicator.dart';
+import 'package:motu/src/design/color_theme.dart';
+import 'package:motu/src/features/learning/course/service/course_service.dart';
+import 'package:motu/src/features/learning/course/view/content/course_quiz_completion_page.dart';
+import 'package:motu/src/features/learning/quiz/service/quiz_service.dart';
 import 'package:provider/provider.dart';
-import '../service/quiz_service.dart';
-import '../../../../common/service/text_utils.dart';
-import '../../../../common/view/widget/linear_indicator.dart';
-import '../../../../design/color_theme.dart';
-import 'quiz_completed_screen.dart';
 
-class QuizScreen extends StatefulWidget {
-  final String collectionName;
-  final String uid;
+class CourseQuizPage extends StatefulWidget {
+  final int index;
+  final CourseService service;
 
-  const QuizScreen(
-      {super.key, required this.collectionName, required this.uid});
+  const CourseQuizPage({
+    super.key,
+    required this.index,
+    required this.service,
+  });
 
   @override
-  _QuizScreenState createState() => _QuizScreenState();
+  CourseQuizPageState createState() => CourseQuizPageState();
 }
 
-class _QuizScreenState extends State<QuizScreen> {
+class CourseQuizPageState extends State<CourseQuizPage> {
   OverlayEntry? _overlayEntry;
   bool _submitted = false;
 
@@ -99,7 +103,8 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => QuizService()..loadQuestions(widget.collectionName),
+      create: (context) => QuizService()
+        ..courseLoadQuestions(widget.service.contentList[widget.index - 1]),
       child: Consumer<QuizService>(
         builder: (context, quizState, child) {
           if (quizState.isLoading) {
@@ -139,17 +144,18 @@ class _QuizScreenState extends State<QuizScreen> {
                     ),
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.push(
+                        Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => QuizCompletedScreen(
+                            builder: (context) => CourseQuizCompletionPage(
                               score: quizState.score,
                               totalQuestions: quizState.questions.length,
                               incorrectAnswers: quizState.incorrectAnswers,
-                              uid: widget.uid,
+                              index: widget.index,
+                              service: widget.service,
                             ),
                           ),
-                        ).then((_) => Navigator.pop(context));
+                        );
                       },
                       child: const Text('점수 보기'),
                     ),
@@ -398,24 +404,23 @@ class _QuizScreenState extends State<QuizScreen> {
                                                 Provider.of<QuizService>(
                                                         context,
                                                         listen: false)
-                                                    .nextQuestion(widget.uid,
-                                                        widget.collectionName);
-                                                Navigator.push(
+                                                    .courseNextQuestion();
+                                                Navigator.pushReplacement(
                                                   context,
                                                   MaterialPageRoute(
                                                     builder: (context) =>
-                                                        QuizCompletedScreen(
+                                                        CourseQuizCompletionPage(
                                                       score: quizState.score,
                                                       totalQuestions: quizState
                                                           .questions.length,
                                                       incorrectAnswers:
                                                           quizState
                                                               .incorrectAnswers,
-                                                      uid: widget.uid,
+                                                      index: widget.index,
+                                                      service: widget.service,
                                                     ),
                                                   ),
-                                                ).then((_) =>
-                                                    Navigator.pop(context));
+                                                );
                                               } else {
                                                 setState(() {
                                                   _submitted = false;
@@ -423,10 +428,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                                   Provider.of<QuizService>(
                                                           context,
                                                           listen: false)
-                                                      .nextQuestion(
-                                                          widget.uid,
-                                                          widget
-                                                              .collectionName);
+                                                      .courseNextQuestion();
                                                 });
                                               }
                                             },

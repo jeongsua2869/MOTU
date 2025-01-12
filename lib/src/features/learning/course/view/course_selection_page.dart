@@ -1,9 +1,13 @@
-import 'dart:developer';
-
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:motu/src/features/learning/course/view/course1_page.dart';
+import 'package:motu/src/features/learning/course/view/course_detail_page.dart';
+
+enum CourseLevel {
+  Basic,
+  Standard,
+  Advanced,
+}
 
 class CourseSelectionPage extends StatelessWidget {
   const CourseSelectionPage({super.key});
@@ -16,7 +20,7 @@ class CourseSelectionPage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: 20.0,
+          horizontal: 12.0,
           vertical: 24.0,
         ),
         child: Column(
@@ -26,20 +30,23 @@ class CourseSelectionPage extends StatelessWidget {
               asset: 'assets/images/learning/course/title/course1_title.png',
               title: "Basic Level",
               subtitle: "투자의 기초, 투자의 중요성과 투자 방법에 대한 기본적인 지식",
+              level: CourseLevel.Basic,
             ),
-            const Gap(20),
+            const Gap(24),
             CourseTitle(
               context,
               asset: 'assets/images/learning/course/title/course2_title.png',
               title: "Standard Level",
               subtitle: "주식 투자의 기본, 주식 투자의 원리와 방법에 대한 기본적인 지식",
+              level: CourseLevel.Standard,
             ),
-            const Gap(20),
+            const Gap(24),
             CourseTitle(
               context,
               asset: 'assets/images/learning/course/title/course3_title.png',
               title: "Advanced Level",
               subtitle: "투자의 전문가, 투자의 전문가가 되기 위한 전문적인 지식",
+              level: CourseLevel.Advanced,
             ),
           ],
         ),
@@ -50,7 +57,8 @@ class CourseSelectionPage extends StatelessWidget {
   Widget CourseTitle(BuildContext context,
       {required String asset,
       required String title,
-      required String subtitle}) {
+      required String subtitle,
+      required CourseLevel level}) {
     Size size = MediaQuery.of(context).size;
 
     return GestureDetector(
@@ -58,46 +66,16 @@ class CourseSelectionPage extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const Course1Page(),
+            builder: (context) => CourseDetailPage(
+              level: level,
+            ),
           ),
         );
       },
-      child: Stack(
-        children: [
-          Image.asset(
-            asset,
-            fit: BoxFit.cover,
-            width: size.width,
-          ),
-          Positioned(
-            left: 160,
-            top: 40,
-            width: size.width - 210,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Gap(8),
-                AutoSizeText(
-                  subtitle,
-                  minFontSize: 10,
-                  maxFontSize: 12,
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        width: size.width,
       ),
     );
   }

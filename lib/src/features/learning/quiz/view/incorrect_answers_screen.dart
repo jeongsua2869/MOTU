@@ -9,10 +9,10 @@ class IncorrectAnswersScreen extends StatefulWidget {
   const IncorrectAnswersScreen({super.key, required this.incorrectAnswers});
 
   @override
-  _IncorrectAnswersScreenState createState() => _IncorrectAnswersScreenState();
+  IncorrectAnswersScreenState createState() => IncorrectAnswersScreenState();
 }
 
-class _IncorrectAnswersScreenState extends State<IncorrectAnswersScreen> {
+class IncorrectAnswersScreenState extends State<IncorrectAnswersScreen> {
   final PageController _pageController = PageController();
   int _currentPageIndex = 0;
 
@@ -138,7 +138,7 @@ class _IncorrectAnswersScreenState extends State<IncorrectAnswersScreen> {
                         ),
                         if (_currentPageIndex ==
                             widget.incorrectAnswers.length - 1) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 24),
                           SizedBox(
                             width: buttonWidth,
                             height: buttonHeight,
@@ -155,7 +155,7 @@ class _IncorrectAnswersScreenState extends State<IncorrectAnswersScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              child: const Text('종료하기'),
+                              child: const Text('종료화면으로 돌아가기'),
                             ),
                           ),
                         ],
