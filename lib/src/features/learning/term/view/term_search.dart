@@ -133,7 +133,9 @@ class TermSearchDelegate extends SearchDelegate {
                         data['catchphrase']), // preventWordBreak 사용
                     Colors.grey,
                     TermCard(
-                        title: data['title'], documentName: doc.id, uid: uid),
+                      title: data['title'],
+                      documentName: doc.id,
+                    ),
                     completionSnapshot.data ?? false,
                   );
                 },

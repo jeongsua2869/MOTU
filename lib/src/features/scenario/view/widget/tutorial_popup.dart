@@ -121,9 +121,9 @@ class TutorialPopup extends StatelessWidget {
             Center(
               child: Column(
                 children: [
-                  _buildTitle(service.selectedScenario ?? type),
+                  _buildTitle(service.selectedScenario),
                   const Spacer(),
-                  _buildContent(service.selectedScenario ?? type),
+                  _buildContent(service.selectedScenario),
                   const Spacer(flex: 2),
                 ],
               ),

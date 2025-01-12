@@ -4,7 +4,7 @@ class Article {
   final String title;
   final String content;
   final String imageUrl;
-  final List<String> topics;
+  final List<dynamic> topics;
 
   Article({
     required this.title,

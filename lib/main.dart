@@ -12,6 +12,7 @@ import 'package:hive/hive.dart';
 import 'package:motu/src/common/database.dart';
 import 'package:motu/src/common/service/background_service.dart';
 import 'package:motu/src/common/service/notifications.dart';
+import 'package:motu/src/features/learning/course/service/course_service.dart';
 import 'package:motu/src/features/login/service/auth_service.dart';
 import 'package:motu/src/features/login/view/onboarding/onboarding.dart';
 import 'package:motu/src/features/profile/service/qna_service.dart';
@@ -44,6 +45,11 @@ void _permissionWithNotification() async {
 Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Hive 로컬DB 초기화
   final dir = await getApplicationDocumentsDirectory();

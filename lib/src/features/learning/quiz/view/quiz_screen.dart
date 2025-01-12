@@ -6,7 +6,6 @@ import '../service/quiz_service.dart';
 import '../../../../common/service/text_utils.dart';
 import '../../../../common/view/widget/linear_indicator.dart';
 import '../../../../design/color_theme.dart';
-import 'incorrect_answers_screen.dart';
 import 'quiz_completed_screen.dart';
 
 class QuizScreen extends StatefulWidget {

@@ -1,12 +1,11 @@
-import 'dart:async';
-
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:motu/src/common/util/util.dart';
 
 import 'package:motu/src/features/scenario/model/stock_data.dart';
 import 'package:motu/src/features/scenario/service/scenario_service.dart';
+import 'package:motu/src/features/scenario/view/order/custom/custom_crosshair_behavior.dart';
+import 'package:motu/src/features/scenario/view/order/custom/custom_trackball_behavior.dart';
 import 'package:motu/src/features/scenario/view/widget/order/custom_date_format.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
@@ -22,8 +21,8 @@ class SynchronizedCharts extends StatefulWidget {
 }
 
 class _SynchronizedChartsState extends State<SynchronizedCharts> {
-  late TrackballBehavior _trackballBehavior;
-  late CrosshairBehavior _crosshairBehavior;
+  late CustomTrackballBehavior _trackballBehavior;
+  final CustomCrosshairBehavior _crosshairBehavior = CustomCrosshairBehavior();
 
   late ZoomPanBehavior _stockZoomPanBehavior;
   late ZoomPanBehavior _volumeZoomPanBehavior;
@@ -57,20 +56,8 @@ class _SynchronizedChartsState extends State<SynchronizedCharts> {
       maximum: widget.service.visibleStockData.last.x,
     );
 
-    _trackballBehavior = TrackballBehavior(
-      enable: true,
-      activationMode: ActivationMode.singleTap,
-      shouldAlwaysShow: true,
-      hideDelay: double.infinity,
-      tooltipDisplayMode: TrackballDisplayMode.nearestPoint,
-      markerSettings: const TrackballMarkerSettings(
-        markerVisibility: TrackballVisibilityMode.visible,
-      ),
-      tooltipAlignment: ChartAlignment.center,
-      lineType: TrackballLineType.vertical,
-      builder: (context, trackballDetails) {
-        print("TRACKBALL DETAILS");
-
+    _trackballBehavior = CustomTrackballBehavior(
+      (context, trackballDetails) {
         final currentIndex = widget.service.visibleStockData
             .indexWhere((data) => data.x == trackballDetails.point?.x);
 
@@ -128,19 +115,19 @@ class _SynchronizedChartsState extends State<SynchronizedCharts> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                Text(
+                  '거래량 \t\t${Formatter.format(stockData.volume)}주',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           );
         }
         return Container();
       },
-    );
-
-    _crosshairBehavior = CrosshairBehavior(
-      enable: true,
-      activationMode: ActivationMode.singleTap,
-      shouldAlwaysShow: true,
-      hideDelay: double.infinity,
     );
 
     _stockZoomPanBehavior = ZoomPanBehavior(
@@ -167,26 +154,6 @@ class _SynchronizedChartsState extends State<SynchronizedCharts> {
     return formatter.format(value);
   }
 
-  StockData _findNearestStockData(Offset chartPoint) {
-    // 차트의 데이터 좌표와 가장 가까운 StockData 찾기
-    StockData nearestData = widget.service.visibleStockData.first;
-    double nearestDistance = double.infinity;
-
-    for (final data in widget.service.visibleStockData) {
-      final dataPoint =
-          Offset(data.x.millisecondsSinceEpoch.toDouble(), data.close);
-      final distance = (chartPoint - dataPoint).distance;
-
-      if (distance < nearestDistance) {
-        print("find nearest data");
-        nearestDistance = distance;
-        nearestData = data;
-      }
-    }
-
-    return nearestData;
-  }
-
   final GlobalKey<State<StatefulWidget>> _chartKey = GlobalKey();
 
   @override
@@ -196,100 +163,66 @@ class _SynchronizedChartsState extends State<SynchronizedCharts> {
         //* MARK: - 주가 데이터 차트
         SizedBox(
           height: widget.size.height * 0.35,
-          child: Stack(
-            children: [
-              SfCartesianChart(
-                key: _chartKey,
-                // 주요 X축, Y축 설정
-                primaryXAxis: widget.service.stockDateTimeCategoryAxis,
-                primaryYAxis: NumericAxis(
-                  placeLabelsNearAxisLine: false,
-                  anchorRangeToVisiblePoints: true,
-                  rangePadding: ChartRangePadding.round,
-                  opposedPosition: true,
-                  axisLabelFormatter: (axisLabelRenderArgs) {
-                    int value = int.parse(axisLabelRenderArgs.text);
-                    String formattedValue = Formatter.format(value);
+          child: SfCartesianChart(
+            key: _chartKey,
+            // 주요 X축, Y축 설정
+            primaryXAxis: widget.service.stockDateTimeCategoryAxis,
+            primaryYAxis: NumericAxis(
+              placeLabelsNearAxisLine: false,
+              anchorRangeToVisiblePoints: true,
+              rangePadding: ChartRangePadding.round,
+              opposedPosition: true,
+              axisLabelFormatter: (axisLabelRenderArgs) {
+                int value = int.parse(axisLabelRenderArgs.text);
+                String formattedValue = Formatter.format(value);
 
-                    widget.service.stockPriceLabelLength =
-                        formattedValue.length;
+                widget.service.stockPriceLabelLength = formattedValue.length;
 
-                    // 고정 너비를 가진 라벨 반환
-                    return ChartAxisLabel(
-                        formattedValue.toString(), numericAxisStyle);
-                  },
+                // 고정 너비를 가진 라벨 반환
+                return ChartAxisLabel(
+                    formattedValue.toString(), numericAxisStyle);
+              },
+            ),
+            // 줌 팬 설정
+            zoomPanBehavior: _stockZoomPanBehavior,
+            onZooming: (zoomingArgs) {
+              _volumeZoomPanBehavior.zoomToSingleAxis(
+                widget.service.volumeDateTimeCategoryAxis,
+                zoomingArgs.currentZoomPosition,
+                zoomingArgs.currentZoomFactor,
+              );
+            },
+
+            crosshairBehavior: _crosshairBehavior,
+            trackballBehavior: _trackballBehavior,
+
+            onChartTouchInteractionDown: (tapArgs) {
+              print("TAP POSITION");
+              _crosshairBehavior.orderToHide();
+              _trackballBehavior.orderToHide();
+            },
+
+            // series 데이터 설정
+            series: <CartesianSeries<StockData, DateTime>>[
+              // 캔들 시리즈
+              CandleSeries<StockData, DateTime>(
+                dataSource: widget.service.visibleStockData,
+                xValueMapper: (StockData data, _) => data.x,
+                openValueMapper: (StockData data, _) => data.open,
+                closeValueMapper: (StockData data, _) => data.close,
+                lowValueMapper: (StockData data, _) => data.low,
+                highValueMapper: (StockData data, _) => data.high,
+                enableSolidCandles: true,
+                emptyPointSettings: const EmptyPointSettings(
+                  mode: EmptyPointMode.gap,
                 ),
-                // 줌 팬 설정
-                zoomPanBehavior: _stockZoomPanBehavior,
-                onZooming: (zoomingArgs) {
-                  _volumeZoomPanBehavior.zoomToSingleAxis(
-                    widget.service.volumeDateTimeCategoryAxis,
-                    zoomingArgs.currentZoomPosition,
-                    zoomingArgs.currentZoomFactor,
-                  );
-                },
-                // trackballBehavior: _trackballBehavior,
-
-                onChartTouchInteractionDown: (tapArgs) {
-                  setState(() {
-                    _tapPosition = tapArgs.position;
-                    _crosshairBehavior.show(
-                        _tapPosition.dx, _tapPosition.dy, 'pixel');
-                  });
-                },
-
-                // series 데이터 설정
-                series: <CartesianSeries<StockData, DateTime>>[
-                  // 캔들 시리즈
-                  CandleSeries<StockData, DateTime>(
-                    dataSource: widget.service.visibleStockData,
-                    xValueMapper: (StockData data, _) => data.x,
-                    openValueMapper: (StockData data, _) => data.open,
-                    closeValueMapper: (StockData data, _) => data.close,
-                    lowValueMapper: (StockData data, _) => data.low,
-                    highValueMapper: (StockData data, _) => data.high,
-                    enableSolidCandles: true,
-                    emptyPointSettings: const EmptyPointSettings(
-                      mode: EmptyPointMode.gap,
-                    ),
-                    bearColor: Colors.blue,
-                    bullColor: Colors.red,
-                    animationDelay: 0,
-                    animationDuration: 500,
-                  ),
-                ],
-                // 십자선 설정
-                // crosshairBehavior: CrosshairBehavior(
-                //   enable: true,
-                //   activationMode: ActivationMode.longPress,
-                //   lineType: CrosshairLineType.both,
-                //   lineColor: Colors.grey,
-                //   lineWidth: 1,
-                //   lineDashArray: const <double>[5, 5],
-                // ),
-                margin: const EdgeInsets.fromLTRB(0, 10, 10, 10),
+                bearColor: Colors.blue,
+                bullColor: Colors.red,
+                animationDelay: 0,
+                animationDuration: 500,
               ),
-              if (_tapPosition != Offset.zero)
-                Positioned(
-                  left: _tapPosition.dx,
-                  top: 0,
-                  child: Container(
-                    width: 1,
-                    height: MediaQuery.of(context).size.height,
-                    color: Colors.red,
-                  ),
-                ),
-              if (_tapPosition != Offset.zero)
-                Positioned(
-                  left: 0,
-                  top: _tapPosition.dy,
-                  child: Container(
-                    width: MediaQuery.of(context).size.width,
-                    height: 1,
-                    color: Colors.red,
-                  ),
-                ),
             ],
+            margin: const EdgeInsets.fromLTRB(0, 10, 10, 10),
           ),
         ),
         //* MARK: - 거래량 데이터 차트

@@ -9,14 +9,12 @@ class TermQuizCompletedScreen extends StatelessWidget {
   final int score;
   final int totalQuestions;
   final List<Map<String, dynamic>> incorrectAnswers;
-  final String uid;
 
   const TermQuizCompletedScreen({
     super.key,
     required this.score,
     required this.totalQuestions,
     required this.incorrectAnswers,
-    required this.uid,
   });
 
   String getFeedbackMessage() {

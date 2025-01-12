@@ -211,6 +211,7 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
 
   Future<void> resumeTimers() async {
     if (_isTimerPaused) {
+      print("⏱️ 시나리오 타이머 재개");
       _isTimerPaused = false;
 
       _globalIndex = _pausedGlobalIndex!;
@@ -252,6 +253,8 @@ class ScenarioService extends ChangeNotifier with IsolateHelperMixin {
       startDataUpdate();
 
       notifyListeners();
+    } else {
+      print("⏱️ 이미 시나리오 타이머 진행중");
     }
   }
 

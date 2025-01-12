@@ -6,12 +6,16 @@ import 'package:motu/src/design/color_theme.dart';
 import 'package:motu/src/common/view/widget/chatbot_fab.dart';
 import 'dart:developer' as dev;
 
+import 'package:provider/provider.dart';
+
 class IntroPage extends StatelessWidget {
-  final ScenarioService service;
-  const IntroPage({super.key, required this.service});
+  const IntroPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    ScenarioService service =
+        Provider.of<ScenarioService>(context, listen: false);
+
     void showTutorialPopup(ScenarioType type) {
       showDialog(
         context: context,

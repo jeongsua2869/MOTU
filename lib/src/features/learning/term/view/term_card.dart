@@ -10,13 +10,12 @@ import 'bookmark_page.dart';
 class TermCard extends StatelessWidget {
   final String title;
   final String documentName;
-  final String uid;
 
-  const TermCard(
-      {super.key,
-      required this.title,
-      required this.documentName,
-      required this.uid});
+  const TermCard({
+    super.key,
+    required this.title,
+    required this.documentName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -89,8 +88,7 @@ class TermCard extends StatelessWidget {
                       onPageChanged: wordsProvider.setCurrentPage,
                       itemBuilder: (context, index) {
                         if (index == wordsProvider.words.length) {
-                          return TermCardCompletionBuilder(
-                              context, title, documentName, uid);
+                          return TermCardCompletionBuilder(context);
                         } else {
                           final word = wordsProvider.words[index];
                           final isBookmarked = wordsProvider.bookmarkedWords
@@ -119,8 +117,8 @@ class TermCard extends StatelessWidget {
                       IconButton(
                         icon: Image.asset(
                           wordsProvider.current > 0
-                              ? 'assets/images/arrow_back_active.png'
-                              : 'assets/images/arrow_back_inactive.png',
+                              ? 'assets/images/learning/term_card/arrow_back_active.png'
+                              : 'assets/images/learning/term_card/arrow_back_inactive.png',
                           width: 40.0,
                           height: 40.0,
                           fit: BoxFit.contain,
@@ -132,8 +130,8 @@ class TermCard extends StatelessWidget {
                       IconButton(
                         icon: Image.asset(
                           wordsProvider.current < wordsProvider.words.length
-                              ? 'assets/images/arrow_forward_active.png'
-                              : 'assets/images/arrow_forward_inactive.png',
+                              ? 'assets/images/learning/term_card/arrow_forward_active.png'
+                              : 'assets/images/learning/term_card/arrow_forward_inactive.png',
                           width: 40.0,
                           height: 40.0,
                           fit: BoxFit.contain,

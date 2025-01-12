@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:motu/src/features/login/service/auth_service.dart';
@@ -6,6 +7,7 @@ import 'dart:developer' as dev;
 
 class QuizService with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   int _currentQuestionIndex = 0;
   int _score = 0;
@@ -41,6 +43,35 @@ class QuizService with ChangeNotifier {
     } catch (e) {
       print('Error getting quiz progress: $e');
       return null;
+    }
+  }
+
+  Future<void> courseLoadQuestions(dynamic data) async {
+    try {
+      List<Map<String, dynamic>> questionsList = [];
+
+      data.forEach((key, value) {
+        print("key: $key, value: $value");
+
+        if (key != 'catchphrase') {
+          questionsList.add(value as Map<String, dynamic>);
+        }
+      });
+
+      for (var question in questionsList) {
+        List<dynamic> options = question['options'];
+        options.shuffle(Random());
+      }
+
+      questionsList.shuffle(Random());
+
+      _questions = questionsList;
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      dev.log('Error loading questions: $e');
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -92,6 +123,26 @@ class QuizService with ChangeNotifier {
         'options': _questions[_currentQuestionIndex]['options'],
       });
     }
+    notifyListeners();
+  }
+
+  Future<void> courseNextQuestion() async {
+    _currentQuestionIndex++;
+    _answered = false;
+    _correct = false;
+    _selectedAnswer = '';
+    _isHintVisible = false; // 다음 질문으로 넘어갈 때 힌트 초기화
+
+    if (_currentQuestionIndex >= _questions.length) {
+      if (_score / _questions.length >= 0.9) {
+        await AuthService().updateUserBalance(
+          _auth.currentUser!.uid,
+          100000,
+          "퀴즈 학습 완료 보상",
+        );
+      }
+    }
+
     notifyListeners();
   }
 

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:motu/src/features/learning/term/view/term_quiz_page.dart';
 import '../../../../../design/color_theme.dart';
 
-Widget TermCardCompletionBuilder(
-    BuildContext context, String title, String documentName, String uid) {
+Widget TermCardCompletionBuilder(BuildContext context) {
   final double screenWidth = MediaQuery.of(context).size.width;
   final double screenHeight = MediaQuery.of(context).size.height;
 
@@ -74,16 +72,15 @@ Widget TermCardCompletionBuilder(
               ),
             ),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => TermQuizPage(
-                    collectionName: 'terminology',
-                    documentName: documentName,
-                    uid: uid,
-                  ),
-                ),
-              );
+              // Navigator.push(
+              //   context,
+              //   MaterialPageRoute(
+              //     builder: (context) => TermQuizPage(
+              //         collectionName: 'terminology',
+              //         documentName: documentName),
+              //   ),
+              // );
+              print('테스트 응시');
             },
             child: const Text('테스트 응시'),
           ),
